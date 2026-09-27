@@ -1,0 +1,12 @@
+{
+  "name": "PYE SOCIAL UNIVERSE",
+  "description": "Next-generation social media platform combining short-form videos, long-form videos, live streaming, virtual conferences, creator tools, and virtual rewards.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
+
