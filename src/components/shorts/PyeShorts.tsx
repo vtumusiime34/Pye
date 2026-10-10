@@ -20,16 +20,17 @@ import {
   Repeat,
   Gauge,
   Flame,
-  Search,
   RotateCw,
-  Trash2,
+  RefreshCw,
   AlertCircle,
-  ThumbsUp,
-  Compass,
-  Users,
+  Shield,
+  EyeOff,
+  UserX,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { PyesVideo, User, Comment } from '../../types';
 import { Storage } from '../../services/storage';
+import { PyeLogo } from '../ui/PyeLogo';
 import { CreatePyesModal } from './CreatePyesModal';
 import { PyesShareModal } from './PyesShareModal';
 
@@ -54,7 +55,10 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
 }) => {
   // Feed state
   const [feedFilter, setFeedFilter] = useState<PyesFeedFilter>('foryou');
-  const [pyesList, setPyesList] = useState<PyesVideo[]>(() => Storage.getPyes('foryou'));
+  const [refreshSeed, setRefreshSeed] = useState<number>(0);
+  const [pyesList, setPyesList] = useState<PyesVideo[]>(() =>
+    Storage.getPyes('foryou', { activeOnly: true })
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Playback state
@@ -65,8 +69,8 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [autoAdvance, setAutoAdvance] = useState(true);
-  const [hasVideoError, setHasVideoError] = useState(false);
-  const [isLoadingVideo, setIsLoadingVideo] = useState(true);
+  const [mediaError, setMediaError] = useState(false);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(true);
 
   // Modals & Drawers
   const [showComments, setShowComments] = useState(false);
@@ -83,6 +87,7 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
   const [heartCoordinates, setHeartCoordinates] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Refs
   const lastTapRef = useRef<number>(0);
@@ -90,7 +95,7 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
   const lastWheelTime = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const nextVideoPreloadRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const photoTimerRef = useRef<any>(null);
 
   const currentPyes = pyesList[currentIndex];
   const nextPyes = pyesList[currentIndex + 1];
@@ -100,138 +105,119 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // Reload feed based on active filter
-  const refreshFeed = useCallback(
-    (filter: PyesFeedFilter = feedFilter) => {
-      const items = Storage.getPyes(filter);
+  // Reload feed based on active filter and freshness
+  const loadPyesFeed = useCallback(
+    (filter: PyesFeedFilter = feedFilter, seed: number = refreshSeed) => {
+      const items = Storage.getPyes(filter, { activeOnly: true, refreshSeed: seed });
       setPyesList(items);
       if (currentIndex >= items.length) {
         setCurrentIndex(Math.max(0, items.length - 1));
       }
     },
-    [feedFilter, currentIndex]
+    [feedFilter, refreshSeed, currentIndex]
   );
 
+  // Trigger smooth refresh
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    const newSeed = refreshSeed + 1;
+    setRefreshSeed(newSeed);
+    const fresh = Storage.getPyes(feedFilter, { activeOnly: true, refreshSeed: newSeed });
+    setPyesList(fresh);
+    setCurrentIndex(0);
+    showToast('Refreshed! Fresh PYES loaded.');
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
   useEffect(() => {
-    const items = Storage.getPyes(feedFilter);
+    const items = Storage.getPyes(feedFilter, { activeOnly: true, refreshSeed });
     setPyesList(items);
     setCurrentIndex(0);
   }, [feedFilter]);
 
-  // Load comments for current video
+  // Load comments for current item
   const loadComments = useCallback((targetId: string) => {
     setComments(Storage.getComments(targetId));
   }, []);
 
   // Update playback when current PYES changes
   useEffect(() => {
-    if (currentPyes) {
-      loadComments(currentPyes.id);
-      setProgress(0);
-      setCurrentTime(0);
-      setDuration(0);
-      setHasVideoError(false);
-      setIsLoadingVideo(true);
-      setCaptionExpanded(false);
+    if (!currentPyes) return;
 
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.playbackRate = playbackSpeed;
-        videoRef.current
-          .play()
-          .then(() => {
-            setIsPlaying(true);
-            setIsLoadingVideo(false);
-          })
-          .catch(() => {
-            // If browser blocks unmuted autoplay, mute and try again
-            if (videoRef.current) {
-              videoRef.current.muted = true;
-              setIsMuted(true);
-              videoRef.current
-                .play()
-                .then(() => {
-                  setIsPlaying(true);
-                  setIsLoadingVideo(false);
-                })
-                .catch(() => {
-                  setIsPlaying(false);
-                  setIsLoadingVideo(false);
-                });
-            }
-          });
-      }
+    loadComments(currentPyes.id);
+    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setMediaError(false);
+    setIsLoadingMedia(true);
+    setCaptionExpanded(false);
+
+    // Record view in recommendation history
+    Storage.recordPyesView(currentPyes.id, 0, false);
+
+    const isImage = currentPyes.mediaType === 'image' || Boolean(
+      currentPyes.videoUrl && (
+        currentPyes.videoUrl.startsWith('data:image') ||
+        /\.(jpg|jpeg|png|webp|gif|avif)($|\?)/i.test(currentPyes.videoUrl)
+      )
+    );
+
+    // Handle photo playback duration simulation (5 seconds auto-advance)
+    if (isImage) {
+      setIsLoadingMedia(false);
+      setIsPlaying(true);
+      setDuration(5);
+
+      if (photoTimerRef.current) clearInterval(photoTimerRef.current);
+      let elapsed = 0;
+      photoTimerRef.current = setInterval(() => {
+        elapsed += 0.2;
+        setCurrentTime(elapsed);
+        setProgress((elapsed / 5) * 100);
+        if (elapsed >= 5) {
+          clearInterval(photoTimerRef.current);
+          Storage.recordPyesView(currentPyes.id, 5, true);
+          if (autoAdvance && currentIndex < pyesList.length - 1) {
+            handleNext();
+          }
+        }
+      }, 200);
+
+      return () => {
+        if (photoTimerRef.current) clearInterval(photoTimerRef.current);
+      };
     }
-  }, [currentIndex, currentPyes, loadComments, playbackSpeed]);
 
-  // Fallback Canvas Animation when video cannot load
-  useEffect(() => {
-    if (!hasVideoError || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    // Video playback
+    if (photoTimerRef.current) clearInterval(photoTimerRef.current);
 
-    let animId: number;
-    let tick = 0;
-
-    const render = () => {
-      tick++;
-      ctx.fillStyle = '#06060c';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Glowing PYE cyber gradient background
-      const grad = ctx.createRadialGradient(
-        canvas.width / 2,
-        canvas.height / 2,
-        20,
-        canvas.width / 2,
-        canvas.height / 2,
-        canvas.width * 0.8
-      );
-      grad.addColorStop(0, 'rgba(255, 0, 122, 0.25)');
-      grad.addColorStop(0.5, 'rgba(255, 85, 0, 0.12)');
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Concentric soundwave pulses
-      const numWaves = 4;
-      for (let i = 0; i < numWaves; i++) {
-        const radius = ((tick * 1.5 + i * 80) % 360) + 20;
-        const alpha = Math.max(0, 1 - radius / 380);
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 160, 0, ${alpha * 0.4})`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-
-      // Center glowing PYES emblem
-      ctx.save();
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.beginPath();
-      ctx.arc(0, 0, 52, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(15, 15, 24, 0.9)';
-      ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#FF007A';
-      ctx.shadowColor = '#FF007A';
-      ctx.shadowBlur = 18;
-      ctx.stroke();
-
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('PYES', 0, 0);
-      ctx.restore();
-
-      animId = requestAnimationFrame(render);
-    };
-
-    render();
-    return () => cancelAnimationFrame(animId);
-  }, [hasVideoError]);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.playbackRate = playbackSpeed;
+      videoRef.current
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+          setIsLoadingMedia(false);
+        })
+        .catch(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            setIsMuted(true);
+            videoRef.current
+              .play()
+              .then(() => {
+                setIsPlaying(true);
+                setIsLoadingMedia(false);
+              })
+              .catch(() => {
+                setIsPlaying(false);
+                setIsLoadingMedia(false);
+              });
+          }
+        });
+    }
+  }, [currentIndex, currentPyes?.id, loadComments, playbackSpeed]);
 
   // Handle video progress updates
   const handleTimeUpdate = () => {
@@ -241,13 +227,18 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
       setCurrentTime(cur);
       setDuration(dur);
       setProgress((cur / dur) * 100);
+
+      if (cur >= 3) {
+        Storage.recordPyesView(currentPyes.id, cur, false);
+      }
     }
   };
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration || 0);
-      setIsLoadingVideo(false);
+      setIsLoadingMedia(false);
+      setMediaError(false);
     }
   };
 
@@ -255,7 +246,7 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
     if (currentIndex < pyesList.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
-      showToast('You reached the latest PYES transmission! 🚀');
+      showToast('You reached the latest active PYES transmission! 🚀');
     }
   }, [currentIndex, pyesList.length]);
 
@@ -266,6 +257,9 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
   }, [currentIndex]);
 
   const handleVideoEnded = () => {
+    if (currentPyes) {
+      Storage.recordPyesView(currentPyes.id, duration, true);
+    }
     if (autoAdvance && currentIndex < pyesList.length - 1) {
       handleNext();
     } else if (videoRef.current) {
@@ -275,6 +269,11 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
   };
 
   const togglePlay = () => {
+    const isImage = currentPyes?.mediaType === 'image';
+    if (isImage) {
+      setIsPlaying(!isPlaying);
+      return;
+    }
     if (!videoRef.current) return;
     if (isPlaying) {
       videoRef.current.pause();
@@ -288,7 +287,6 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept when user is typing inside an input/textarea
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea') return;
 
@@ -298,7 +296,7 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
       } else if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault();
         handlePrev();
-      } else if (e.key === ' ' || e.key === 'k') {
+      } else if (e.key === ' ') {
         e.preventDefault();
         togglePlay();
       } else if (e.key === 'm') {
@@ -318,9 +316,23 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, isPlaying, currentPyes]);
+  }, [handleNext, handlePrev, currentPyes, isPlaying]);
 
-  // Touch Swipe for Mobile (Vertical Swipe Up / Down)
+  // Mouse wheel scroll with debounce
+  const handleWheel = (e: React.WheelEvent) => {
+    const now = Date.now();
+    if (now - lastWheelTime.current < 450) return;
+    if (Math.abs(e.deltaY) > 35) {
+      lastWheelTime.current = now;
+      if (e.deltaY > 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
+    }
+  };
+
+  // Touch swipe navigation for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
   };
@@ -329,39 +341,23 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
     if (touchStartY.current === null) return;
     const touchEndY = e.changedTouches[0].clientY;
     const diff = touchStartY.current - touchEndY;
-    const minSwipeDistance = 50;
-
-    if (diff > minSwipeDistance) {
-      handleNext();
-    } else if (diff < -minSwipeDistance) {
-      handlePrev();
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
     }
     touchStartY.current = null;
   };
 
-  // Mouse wheel scroll with debounce
-  const handleWheel = (e: React.WheelEvent) => {
-    const now = Date.now();
-    if (now - lastWheelTime.current < 650) return;
-
-    if (e.deltaY > 35) {
-      lastWheelTime.current = now;
-      handleNext();
-    } else if (e.deltaY < -35) {
-      lastWheelTime.current = now;
-      handlePrev();
-    }
-  };
-
-  // Container tap / Double tap for Like
+  // Double tap to heart
   const handleContainerClick = (e: React.MouseEvent<HTMLElement>) => {
     const now = Date.now();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-
     if (now - lastTapRef.current < 300) {
-      // Double Tap: Trigger Like Burst
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
       setHeartCoordinates({ x, y });
       setHeartBurst(true);
       setTimeout(() => setHeartBurst(false), 900);
@@ -375,32 +371,9 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
     lastTapRef.current = now;
   };
 
-  // Interactive timeline scrubber
-  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    if (!videoRef.current || !videoRef.current.duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percent = Math.max(0, Math.min(1, clickX / rect.width));
-    videoRef.current.currentTime = percent * videoRef.current.duration;
-  };
-
-  // Speed cycle: 1x -> 1.25x -> 1.5x -> 2x -> 0.75x -> 1x
-  const cycleSpeed = () => {
-    const speeds = [1.0, 1.25, 1.5, 2.0, 0.75];
-    const nextIdx = (speeds.indexOf(playbackSpeed) + 1) % speeds.length;
-    const nextSpeed = speeds[nextIdx];
-    setPlaybackSpeed(nextSpeed);
-    if (videoRef.current) {
-      videoRef.current.playbackRate = nextSpeed;
-    }
-    showToast(`Speed: ${nextSpeed}x`);
-  };
-
-  // Real Database Likes
   const handleLike = () => {
     if (!currentUser) {
-      onOpenAuth('login');
+      onOpenAuth();
       return;
     }
     if (!currentPyes) return;
@@ -415,115 +388,85 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
     );
   };
 
-  // Real Database Saves / Bookmarks
   const handleSave = () => {
     if (!currentUser) {
-      onOpenAuth('login');
+      onOpenAuth();
       return;
     }
     if (!currentPyes) return;
 
-    const saved = Storage.togglePyesSave(currentPyes.id);
+    const isSaved = Storage.togglePyesSave(currentPyes.id);
     setPyesList((prev) =>
-      prev.map((item) =>
-        item.id === currentPyes.id ? { ...item, isSaved: saved } : item
-      )
+      prev.map((item) => (item.id === currentPyes.id ? { ...item, isSaved } : item))
     );
-    showToast(saved ? 'Saved to your PYES Vault' : 'Removed from Vault');
+    showToast(isSaved ? 'PYES saved to vault' : 'Removed from vault');
   };
 
-  // Real Follow System
-  const isFollowingAuthor = currentUser && currentPyes
-    ? Storage.isFollowing(currentPyes.authorId)
-    : false;
+  const isFollowingAuthor = currentPyes ? Storage.isFollowing(currentPyes.authorId) : false;
 
   const handleFollow = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentUser) {
-      onOpenAuth('login');
+      onOpenAuth();
       return;
     }
-    if (!currentPyes || currentUser.id === currentPyes.authorId) return;
+    if (!currentPyes) return;
 
     const nowFollowing = Storage.toggleFollow(currentPyes.authorId);
     showToast(nowFollowing ? `Following @${currentPyes.author.username}` : `Unfollowed @${currentPyes.author.username}`);
+    loadPyesFeed();
   };
 
-  // Real Comments Handlers
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
-      onOpenAuth('login');
+      onOpenAuth();
       return;
     }
-    if (!currentPyes || !commentText.trim()) return;
+    if (!commentText.trim() || !currentPyes) return;
 
-    try {
-      const newComment = Storage.addComment(currentPyes.id, commentText.trim(), 'pyes');
-      setComments((prev) => [newComment, ...prev]);
-      setCommentText('');
-
-      setPyesList((prev) =>
-        prev.map((item) =>
-          item.id === currentPyes.id
-            ? { ...item, commentsCount: item.commentsCount + 1 }
-            : item
-        )
-      );
-      showToast('Comment posted to PYES!');
-    } catch (err: any) {
-      showToast(err?.message || 'Could not post comment.');
-    }
-  };
-
-  const handleDeleteComment = (commentId: string) => {
-    Storage.deleteComment(commentId);
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
-    if (currentPyes) {
-      setPyesList((prev) =>
-        prev.map((item) =>
-          item.id === currentPyes.id
-            ? { ...item, commentsCount: Math.max(0, item.commentsCount - 1) }
-            : item
-        )
-      );
-    }
-    showToast('Comment deleted.');
-  };
-
-  const handleLikeComment = (commentId: string) => {
-    if (!currentUser) {
-      onOpenAuth('login');
-      return;
-    }
-    const res = Storage.toggleLike(commentId, 'comment');
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === commentId ? { ...c, isLiked: res.isLiked, likesCount: res.likesCount } : c
+    const newComment = Storage.addComment(currentPyes.id, commentText, 'pyes');
+    setComments((prev) => [newComment, ...prev]);
+    setPyesList((prev) =>
+      prev.map((item) =>
+        item.id === currentPyes.id
+          ? { ...item, commentsCount: (item.commentsCount || 0) + 1 }
+          : item
       )
     );
+    setCommentText('');
+    showToast('Comment posted!');
   };
 
-  // Creation Success Callback
-  const handlePyesCreated = (newVideo: PyesVideo) => {
-    setPyesList((prev) => [newVideo, ...prev]);
-    setCurrentIndex(0);
-    showToast('Your PYES is now broadcasting live!');
+  const handleShareClick = () => {
+    if (!currentPyes) return;
+    Storage.recordPyesShare(currentPyes.id);
+    setShowShareModal(true);
   };
 
-  const formatTime = (secs: number) => {
-    if (isNaN(secs) || secs < 0) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  const cycleSpeed = () => {
+    const speeds = [1.0, 1.25, 1.5, 2.0, 0.75];
+    const next = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
+    setPlaybackSpeed(next);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = next;
+    }
+    showToast(`Speed: ${next}x`);
   };
+
+  const isImageMedia = currentPyes?.mediaType === 'image' || Boolean(
+    currentPyes?.videoUrl && (
+      currentPyes.videoUrl.startsWith('data:image') ||
+      /\.(jpg|jpeg|png|webp|gif|avif)($|\?)/i.test(currentPyes.videoUrl)
+    )
+  );
 
   return (
     <div
       onWheel={handleWheel}
       className="relative w-full h-[calc(100dvh-4rem-4rem)] lg:h-[calc(100vh-5rem)] max-h-[860px] flex items-center justify-center select-none overflow-hidden"
     >
-      {/* Toast Notification */}
+      {/* Toast Alert */}
       {toastMsg && (
         <div className="absolute top-4 z-50 px-4 py-2 rounded-full bg-black/90 border border-[#FF007A]/40 text-white text-xs font-semibold shadow-2xl backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-top duration-200">
           <Sparkles className="w-3.5 h-3.5 text-[#FFA000]" />
@@ -533,17 +476,17 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
 
       {/* Main Theatre Wrapper (Responsive for Mobile, Tablet, PC) */}
       <div className="relative flex items-center justify-center gap-4 sm:gap-6 w-full h-full">
-        {/* Ambient Backlight Glow Matching PYE Gradient */}
-        <div className="absolute -inset-4 bg-gradient-to-tr from-[#FF007A]/25 via-[#FF5500]/15 to-[#FFA000]/20 rounded-[44px] blur-3xl -z-10 opacity-70 pointer-events-none transition-all duration-700" />
+        {/* Subtle, neutral dark backdrop - NO giant decorative canvas or radial watermark */}
+        <div className="absolute inset-0 bg-[#07070c] -z-10" />
 
-        {/* Vertical Reel Phone Frame */}
+        {/* Vertical Reel Frame */}
         <div
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           className="relative w-full max-w-[420px] h-full rounded-2xl sm:rounded-[32px] overflow-hidden bg-black shadow-2xl border border-white/10 flex flex-col justify-between"
         >
-          {/* Preload subsequent video quietly in background for instantaneous transitions */}
-          {nextPyes && (
+          {/* Preload subsequent video quietly */}
+          {nextPyes && nextPyes.mediaType !== 'image' && (
             <video
               ref={nextVideoPreloadRef}
               src={nextPyes.videoUrl}
@@ -552,34 +495,29 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
             />
           )}
 
-          {/* STATE: NO CONTENT IN FEED */}
+          {/* STATE: NO ACTIVE PYES IN FEED */}
           {pyesList.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-30 bg-black/90 space-y-4">
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#FF007A] via-[#FF5500] to-[#FFA000] p-1 flex items-center justify-center shadow-2xl">
-                <div className="w-full h-full bg-[#0b0b14] rounded-[22px] flex items-center justify-center">
-                  <Flame className="w-8 h-8 text-[#FFA000]" />
-                </div>
+              <div className="w-16 h-16 rounded-3xl bg-zinc-900 border border-white/10 flex items-center justify-center shadow-xl">
+                <Flame className="w-8 h-8 text-[#FF007A]" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-bold text-white">
-                  PYES is waiting for your next discovery.
-                </h3>
+                <h3 className="text-base font-bold text-white">No Active PYES Right Now</h3>
                 <p className="text-xs text-zinc-400 max-w-xs">
                   {feedFilter === 'following'
-                    ? 'No videos from creators you follow yet. Discover trending creators or broadcast your own!'
-                    : 'Be the pioneer to publish the first vertical transmission on PYES.'}
+                    ? 'No active 24h reels from creators you follow yet.'
+                    : 'Be the first pioneer to broadcast a 24h photo or video reel on PYES!'}
                 </p>
               </div>
 
               <div className="flex gap-2 pt-2">
-                {feedFilter === 'following' && (
-                  <button
-                    onClick={() => setFeedFilter('foryou')}
-                    className="px-4 py-2 rounded-xl bg-white/10 text-white text-xs font-semibold hover:bg-white/15 transition"
-                  >
-                    Switch to For You
-                  </button>
-                )}
+                <button
+                  onClick={handleRefresh}
+                  className="px-4 py-2 rounded-xl bg-white/10 text-white text-xs font-semibold hover:bg-white/15 transition flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh</span>
+                </button>
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white text-xs font-bold shadow-lg shadow-[#FF007A]/30 hover:opacity-95 transition flex items-center gap-1.5"
@@ -589,63 +527,96 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
                 </button>
               </div>
             </div>
-          ) : hasVideoError ? (
-            /* STATE: ERROR with procedural fallback visualizer + Retry */
-            <div className="relative w-full h-full">
-              <canvas
-                ref={canvasRef}
-                width={420}
-                height={760}
-                onClick={handleContainerClick}
-                className="absolute inset-0 w-full h-full object-cover cursor-pointer"
+          ) : currentPyes && isImageMedia ? (
+            /* STATE: PHOTO PYE (Preserve aspect ratio, full visual visibility) */
+            <div
+              onClick={handleContainerClick}
+              className="relative w-full h-full flex items-center justify-center bg-[#09090f] cursor-pointer"
+            >
+              <img
+                src={currentPyes.videoUrl || currentPyes.posterUrl}
+                alt={currentPyes.title || 'PYE Photo'}
+                className="w-full h-full object-contain"
+                onLoad={() => setIsLoadingMedia(false)}
+                onError={() => {
+                  setMediaError(true);
+                  setIsLoadingMedia(false);
+                }}
               />
-              <div className="absolute top-20 inset-x-4 p-3 rounded-2xl bg-black/75 backdrop-blur-md border border-white/10 text-center space-y-2 z-20">
-                <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-zinc-300">
-                  <AlertCircle className="w-4 h-4 text-amber-400" />
-                  <span>Something went wrong loading this transmission.</span>
-                </div>
+              {/* Photo badge indicator */}
+              <div className="absolute top-16 left-4 z-20 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] text-zinc-300 font-bold flex items-center gap-1">
+                <ImageIcon className="w-3 h-3 text-[#FFA000]" />
+                <span>Photo Reel</span>
+              </div>
+            </div>
+          ) : currentPyes && mediaError ? (
+            /* STATE: INDIVIDUAL MEDIA ISSUE (Graceful skip / fallback without crashing feed) */
+            <div className="relative w-full h-full flex flex-col items-center justify-center bg-[#0b0b14] p-6 text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center">
+                <AlertCircle className="w-7 h-7 text-amber-400" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-zinc-200">Couldn't load this Pye media.</p>
+                <p className="text-[11px] text-zinc-400">The transmission could not be rendered.</p>
+              </div>
+              <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    setHasVideoError(false);
+                    setMediaError(false);
                     if (videoRef.current) {
                       videoRef.current.load();
                       videoRef.current.play().catch(() => {});
                     }
                   }}
-                  className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white text-[11px] font-bold shadow hover:opacity-95 transition inline-flex items-center gap-1"
+                  className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition flex items-center gap-1"
                 >
-                  <RotateCw className="w-3.5 h-3.5" />
-                  <span>Retry Transmission</span>
+                  <RotateCw className="w-3 h-3" />
+                  <span>Retry</span>
                 </button>
+                {currentIndex < pyesList.length - 1 && (
+                  <button
+                    onClick={handleNext}
+                    className="px-4 py-1.5 rounded-full bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white text-xs font-bold transition"
+                  >
+                    Next Pye →
+                  </button>
+                )}
               </div>
             </div>
           ) : (
-            /* STATE: HTML5 VIDEO ELEMENT */
-            <div className="relative w-full h-full">
+            /* STATE: HTML5 VIDEO ELEMENT (Natural fit, no distortion) */
+            <div className="relative w-full h-full flex items-center justify-center bg-[#09090f]">
               <video
                 ref={videoRef}
-                src={currentPyes.videoUrl}
-                poster={currentPyes.posterUrl}
+                src={currentPyes?.videoUrl}
+                poster={currentPyes?.posterUrl}
                 loop={!autoAdvance}
                 playsInline
                 muted={isMuted}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
                 onEnded={handleVideoEnded}
-                onError={() => setHasVideoError(true)}
-                onWaiting={() => setIsLoadingVideo(true)}
-                onPlaying={() => setIsLoadingVideo(false)}
+                onError={() => {
+                  console.warn('Video failed to load:', currentPyes?.videoUrl);
+                  setMediaError(true);
+                  setIsLoadingMedia(false);
+                }}
+                onWaiting={() => setIsLoadingMedia(true)}
+                onPlaying={() => {
+                  setIsLoadingMedia(false);
+                  setMediaError(false);
+                }}
                 onClick={handleContainerClick}
-                className="absolute inset-0 w-full h-full object-cover cursor-pointer"
+                className="w-full h-full object-contain cursor-pointer"
               />
 
-              {/* STATE: LOADING SPINNER */}
-              {isLoadingVideo && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px] pointer-events-none z-20">
-                  <div className="relative flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full border-2 border-white/20 border-t-[#FF007A] animate-spin" />
+              {/* LOADING SPINNER */}
+              {isLoadingMedia && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] pointer-events-none z-20">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-[#FF007A] animate-spin" />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300 font-mono">
-                      PYES LOADING
+                      LOADING PYE
                     </span>
                   </div>
                 </div>
@@ -653,7 +624,7 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
             </div>
           )}
 
-          {/* Double Tap Heart Burst Animation */}
+          {/* Double Tap Heart Burst */}
           {heartBurst && (
             <div
               style={{ left: `${heartCoordinates.x}%`, top: `${heartCoordinates.y}%` }}
@@ -666,11 +637,11 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
             </div>
           )}
 
-          {/* STATE: PAUSED Holographic Play Overlay */}
-          {!isPlaying && pyesList.length > 0 && !hasVideoError && (
+          {/* PAUSED Overlay */}
+          {!isPlaying && pyesList.length > 0 && !mediaError && (
             <div
               onClick={togglePlay}
-              className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer z-20"
+              className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] cursor-pointer z-20"
             >
               <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#FF007A] via-[#FF5500] to-[#FFA000] flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-95 transition">
                 <Play className="w-8 h-8 ml-1 fill-white" />
@@ -678,19 +649,19 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
             </div>
           )}
 
-          {/* TOP AREA: Clean, Futuristic, Responsive HUD */}
-          <div className="relative z-30 p-3 sm:p-4 pt-3 flex items-center justify-between bg-gradient-to-b from-black/90 via-black/50 to-transparent">
+          {/* TOP AREA: Clean Navigation HUD (Lowered & uncluttered, no giant central watermark) */}
+          <div className="relative z-30 p-3 sm:p-4 pt-3 flex items-center justify-between bg-gradient-to-b from-black/85 via-black/40 to-transparent">
             {/* PYES Logo Badge & Navigation Segment */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 shadow-md">
-                <span className="w-2 h-2 rounded-full bg-[#FF007A] animate-pulse" />
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 shadow-md">
+                <PyeLogo size={18} />
                 <span className="text-xs font-black tracking-widest text-white font-display">
                   PYES
                 </span>
               </div>
 
               {/* Feed Mode Selector: FOR YOU · FOLLOWING · DISCOVER */}
-              <div className="flex items-center bg-black/50 backdrop-blur-md rounded-full p-0.5 border border-white/10 text-[10px] font-bold">
+              <div className="flex items-center bg-black/60 backdrop-blur-md rounded-full p-0.5 border border-white/10 text-[10px] font-bold">
                 <button
                   onClick={() => setFeedFilter('foryou')}
                   className={`px-2.5 py-1 rounded-full transition ${
@@ -724,8 +695,19 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
               </div>
             </div>
 
-            {/* Top Right Utilities: Auto-advance, Speed, Audio, CREATE PYES */}
+            {/* Top Right Controls: Refresh, Speed, Mute, CREATE */}
             <div className="flex items-center gap-1.5">
+              {/* Refresh PYES Feed Button */}
+              <button
+                onClick={handleRefresh}
+                className={`p-1.5 rounded-full bg-black/60 border border-white/10 text-zinc-300 hover:text-white transition ${
+                  isRefreshing ? 'animate-spin text-[#FFA000]' : ''
+                }`}
+                title="Refresh PYES (Get Fresh Posts)"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+
               {/* Loop / Auto Advance Toggle */}
               <button
                 onClick={() => {
@@ -742,28 +724,32 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
                 <Repeat className="w-3.5 h-3.5" />
               </button>
 
-              {/* Speed Controller */}
-              <button
-                onClick={cycleSpeed}
-                className="px-2 py-1 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/10 hover:border-[#FFA000]/60 text-[10px] font-mono font-bold transition flex items-center gap-1"
-                title="Playback Speed"
-              >
-                <Gauge className="w-3 h-3 text-[#FFA000]" />
-                <span>{playbackSpeed}x</span>
-              </button>
+              {/* Speed Controller (Videos only) */}
+              {!isImageMedia && (
+                <button
+                  onClick={cycleSpeed}
+                  className="px-2 py-1 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/10 hover:border-[#FFA000]/60 text-[10px] font-mono font-bold transition flex items-center gap-1"
+                  title="Playback Speed"
+                >
+                  <Gauge className="w-3 h-3 text-[#FFA000]" />
+                  <span>{playbackSpeed}x</span>
+                </button>
+              )}
 
-              {/* Mute / Unmute Button */}
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className={`p-2 rounded-full backdrop-blur-md text-white border transition ${
-                  isMuted
-                    ? 'bg-black/70 border-white/10 hover:border-white/30 text-zinc-400'
-                    : 'bg-[#FF007A]/30 border-[#FF007A]/60 text-[#FFA000] shadow-lg shadow-[#FF007A]/20'
-                }`}
-                title={isMuted ? 'Click to Unmute (M)' : 'Click to Mute (M)'}
-              >
-                {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              </button>
+              {/* Mute / Unmute Button (Videos only) */}
+              {!isImageMedia && (
+                <button
+                  onClick={() => setIsMuted(!isMuted)}
+                  className={`p-2 rounded-full backdrop-blur-md text-white border transition ${
+                    isMuted
+                      ? 'bg-black/70 border-white/10 hover:border-white/30 text-zinc-400'
+                      : 'bg-[#FF007A]/30 border-[#FF007A]/60 text-[#FFA000] shadow-lg shadow-[#FF007A]/20'
+                  }`}
+                  title={isMuted ? 'Click to Unmute (M)' : 'Click to Mute (M)'}
+                >
+                  {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
 
               {/* CREATE PYES Button */}
               <button
@@ -777,9 +763,9 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
             </div>
           </div>
 
-          {/* BOTTOM AREA: Creator Info, Safe Captions, Audio Ticker, Timeline */}
+          {/* BOTTOM AREA: Creator Info, Captions, Audio Stem, Timeline */}
           {currentPyes && (
-            <div className="relative z-30 p-3 sm:p-4 pb-2 bg-gradient-to-t from-black/95 via-black/80 to-transparent space-y-2">
+            <div className="relative z-30 p-3 sm:p-4 pb-2 bg-gradient-to-t from-black/95 via-black/75 to-transparent space-y-2">
               {/* Creator Row with Working Real Follow Button */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
@@ -844,35 +830,29 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
                 </div>
               </div>
 
-              {/* Title & Caption in Dedicated Safe Area (Restricted max-width to never overlap right buttons) */}
+              {/* Title & Caption */}
               <div className="max-w-[calc(100%-68px)] space-y-1">
                 {currentPyes.title && (
-                  <h4 className="text-xs font-bold text-white truncate drop-shadow">
+                  <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-1">
                     {currentPyes.title}
                   </h4>
                 )}
                 <p
                   onClick={() => setCaptionExpanded(!captionExpanded)}
-                  className={`text-xs text-zinc-200 leading-relaxed cursor-pointer drop-shadow ${
-                    captionExpanded ? 'max-h-24 overflow-y-auto pr-1' : 'line-clamp-2'
+                  className={`text-xs text-zinc-200 cursor-pointer transition leading-relaxed ${
+                    captionExpanded ? '' : 'line-clamp-2'
                   }`}
                 >
                   {currentPyes.caption}
-                  {currentPyes.caption.length > 70 && (
-                    <span className="text-[#FFA000] font-semibold ml-1">
-                      {captionExpanded ? ' less' : ' ...more'}
-                    </span>
-                  )}
                 </p>
 
                 {/* Hashtags */}
                 {currentPyes.hashtags && currentPyes.hashtags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-0.5">
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {currentPyes.hashtags.map((tag) => (
                       <span
                         key={tag}
-                        onClick={() => showToast(`Hashtag: #${tag}`)}
-                        className="text-[11px] font-semibold text-[#FFA000] hover:underline cursor-pointer"
+                        className="text-[10px] font-bold text-[#FFA000] hover:underline cursor-pointer"
                       >
                         #{tag}
                       </span>
@@ -881,197 +861,193 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
                 )}
               </div>
 
-              {/* Audio Stem Ticker & Timestamps */}
-              <div className="flex items-center justify-between text-[10px] text-zinc-300 max-w-[calc(100%-68px)] pt-0.5">
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                  <Music className="w-3 h-3 text-[#FF007A] shrink-0" />
-                  <span className="truncate text-zinc-300 font-mono">
-                    {currentPyes.musicTitle || 'Original PYES Stem'}
-                  </span>
+              {/* Audio Track Ticker */}
+              <div className="flex items-center gap-2 pt-1 text-[11px] text-zinc-300">
+                <Music className="w-3 h-3 text-[#FF007A] shrink-0 animate-pulse" />
+                <div className="overflow-hidden w-full">
+                  <p className="truncate font-mono text-[10px]">
+                    {currentPyes.musicTitle || 'Original PYES Stem'} • {currentPyes.musicAuthor || currentPyes.author.fullName}
+                  </p>
                 </div>
-                <span className="font-mono text-zinc-400 tabular-nums shrink-0 ml-2">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
               </div>
 
-              {/* Interactive Timeline Progress Scrubber */}
-              <div
-                onClick={handleScrub}
-                className="w-full h-2 group/scrub py-0.5 cursor-pointer relative flex items-center"
-                title="Click or drag to seek"
-              >
-                <div className="w-full h-1 group-hover/scrub:h-1.5 bg-white/20 rounded-full overflow-hidden transition-all">
+              {/* Precision Playback Timeline Bar */}
+              <div className="w-full pt-1">
+                <div
+                  onClick={(e) => {
+                    if (isImageMedia) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const pct = clickX / rect.width;
+                    if (videoRef.current && duration) {
+                      videoRef.current.currentTime = pct * duration;
+                    }
+                  }}
+                  className="relative w-full h-1 bg-white/20 rounded-full cursor-pointer overflow-hidden group hover:h-1.5 transition-all"
+                >
                   <div
                     style={{ width: `${progress}%` }}
-                    className="h-full bg-gradient-to-r from-[#FF007A] via-[#FF5500] to-[#FFA000]"
+                    className="h-full bg-gradient-to-r from-[#FF007A] via-[#FF5500] to-[#FFA000] rounded-full transition-all"
                   />
                 </div>
-                <div
-                  style={{ left: `${progress}%` }}
-                  className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-md -translate-x-1/2 opacity-0 group-hover/scrub:opacity-100 transition-opacity"
-                />
               </div>
             </div>
           )}
 
-          {/* RIGHT-SIDE ACTION AREA: Vertical Action Column (Never Collides) */}
+          {/* RIGHT SIDE VERTICAL ACTION CONTROLS */}
           {currentPyes && (
-            <div className="absolute right-2 sm:right-3 bottom-14 sm:bottom-16 flex flex-col items-center gap-2.5 sm:gap-3.5 z-30 w-11 sm:w-12">
-              {/* Creator Profile Button */}
-              <button
-                onClick={() => onViewProfile(currentPyes.authorId)}
-                className="relative group focus:outline-none flex flex-col items-center"
-                title={`View ${currentPyes.author.fullName}'s profile`}
-              >
-                <div className="w-10 h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#FF007A] to-[#FFA000] shadow-lg">
+            <div className="absolute right-2 bottom-16 z-30 flex flex-col items-center gap-3.5">
+              {/* 1. Author Avatar with Quick Follow Badge */}
+              <div className="relative group cursor-pointer">
+                <div
+                  onClick={() => onViewProfile(currentPyes.authorId)}
+                  className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#FF007A] via-[#FF5500] to-[#FFA000]"
+                >
                   <img
                     src={currentPyes.author.avatar}
                     alt={currentPyes.author.fullName}
-                    className="w-full h-full rounded-full object-cover bg-zinc-800"
+                    className="w-10 h-10 rounded-full bg-zinc-900 object-cover ring-2 ring-black"
                   />
                 </div>
-              </button>
+                {!isFollowingAuthor && currentUser?.id !== currentPyes.authorId && (
+                  <button
+                    onClick={handleFollow}
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white flex items-center justify-center text-[10px] font-black shadow hover:scale-110 active:scale-95 transition"
+                    title="Follow Creator"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
 
-              {/* 1. LIKE Action */}
-              <button
-                onClick={handleLike}
-                className="flex flex-col items-center gap-0.5 group focus:outline-none"
-                title="Like PYES (L)"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition active:scale-90 ${
+              {/* 2. Heart / Like Button */}
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={handleLike}
+                  className={`p-2.5 rounded-full backdrop-blur-md border transition hover:scale-110 active:scale-90 shadow-lg ${
                     currentPyes.isLiked
-                      ? 'bg-[#FF007A] text-white border-[#FF007A] shadow-lg shadow-[#FF007A]/50 scale-105'
-                      : 'bg-black/50 text-white border-white/10 group-hover:bg-white/10 group-hover:scale-105'
+                      ? 'bg-[#FF007A] border-[#FF007A] text-white shadow-[#FF007A]/50'
+                      : 'bg-black/60 border-white/10 text-white hover:text-[#FF007A]'
                   }`}
+                  title="Like PYES (L)"
                 >
                   <Heart
-                    className={`w-5 h-5 transition-transform ${
-                      currentPyes.isLiked ? 'fill-white scale-110' : ''
+                    className={`w-5 h-5 transition ${
+                      currentPyes.isLiked ? 'fill-white stroke-white' : ''
                     }`}
                   />
-                </div>
-                <span className="text-[10px] font-bold text-white drop-shadow font-mono tabular-nums leading-none">
+                </button>
+                <span className="text-[10px] font-mono font-bold text-white mt-0.5">
                   {currentPyes.likesCount}
                 </span>
-              </button>
+              </div>
 
-              {/* 2. COMMENT Action */}
-              <button
-                onClick={() => setShowComments(!showComments)}
-                className="flex flex-col items-center gap-0.5 group focus:outline-none"
-                title="Comments (C)"
-              >
-                <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white group-hover:bg-white/10 group-hover:scale-105 transition active:scale-90">
+              {/* 3. Comments Button */}
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={() => setShowComments(!showComments)}
+                  className="p-2.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:text-[#FFA000] hover:scale-110 active:scale-90 transition shadow-lg"
+                  title="View Comments (C)"
+                >
                   <MessageCircle className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-bold text-white drop-shadow font-mono tabular-nums leading-none">
+                </button>
+                <span className="text-[10px] font-mono font-bold text-white mt-0.5">
                   {currentPyes.commentsCount}
                 </span>
-              </button>
+              </div>
 
-              {/* 3. SAVE Action */}
-              <button
-                onClick={handleSave}
-                className="flex flex-col items-center gap-0.5 group focus:outline-none"
-                title="Save to PYES Vault (S)"
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition active:scale-90 ${
+              {/* 4. Save to Vault Button */}
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={handleSave}
+                  className={`p-2.5 rounded-full backdrop-blur-md border transition hover:scale-110 active:scale-90 shadow-lg ${
                     currentPyes.isSaved
-                      ? 'bg-[#FFA000] text-black border-[#FFA000] shadow-lg shadow-[#FFA000]/40 scale-105'
-                      : 'bg-black/50 text-white border-white/10 group-hover:bg-white/10 group-hover:scale-105'
+                      ? 'bg-[#FFA000] border-[#FFA000] text-black shadow-[#FFA000]/50'
+                      : 'bg-black/60 border-white/10 text-white hover:text-[#FFA000]'
                   }`}
+                  title="Save to Vault (S)"
                 >
                   <Bookmark
-                    className={`w-5 h-5 ${currentPyes.isSaved ? 'fill-black' : ''}`}
+                    className={`w-5 h-5 transition ${
+                      currentPyes.isSaved ? 'fill-black stroke-black' : ''
+                    }`}
                   />
-                </div>
-                <span className="text-[9px] font-semibold text-white drop-shadow leading-none">
-                  Save
-                </span>
-              </button>
+                </button>
+                <span className="text-[10px] font-mono font-bold text-white mt-0.5">Save</span>
+              </div>
 
-              {/* 4. TIP CREATOR Action */}
-              <button
-                onClick={() => onOpenTipModal(currentPyes.authorId, currentPyes.author.fullName)}
-                className="flex flex-col items-center gap-0.5 group focus:outline-none"
-                title="Send PYE Coin Tip"
-              >
-                <div className="w-10 h-10 rounded-full bg-amber-500/20 backdrop-blur-md border border-amber-500/40 flex items-center justify-center text-[#FFA000] group-hover:scale-110 active:scale-90 transition shadow-lg shadow-amber-500/10">
+              {/* 5. Tip Creator Button (PYE Coins) */}
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={() => onOpenTipModal(currentPyes.authorId, currentPyes.author.fullName)}
+                  className="p-2.5 rounded-full bg-gradient-to-tr from-[#FF007A]/40 to-[#FFA000]/40 backdrop-blur-md border border-white/20 text-[#FFA000] hover:scale-110 active:scale-90 transition shadow-lg"
+                  title="Tip Creator with PYE Coins"
+                >
                   <Gift className="w-5 h-5" />
-                </div>
-                <span className="text-[9px] font-semibold text-amber-300 drop-shadow leading-none">
-                  Tip
-                </span>
-              </button>
+                </button>
+                <span className="text-[10px] font-mono font-bold text-[#FFA000] mt-0.5">Tip</span>
+              </div>
 
-              {/* 5. SHARE Action */}
-              <button
-                onClick={() => setShowShareModal(true)}
-                className="flex flex-col items-center gap-0.5 group focus:outline-none"
-                title="Share PYES"
-              >
-                <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-white group-hover:bg-white/10 group-hover:scale-105 active:scale-90 transition">
+              {/* 6. Share Button */}
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={handleShareClick}
+                  className="p-2.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:text-[#FF5500] hover:scale-110 active:scale-90 transition shadow-lg"
+                  title="Share PYES"
+                >
                   <Share2 className="w-5 h-5" />
-                </div>
-                <span className="text-[9px] font-semibold text-white drop-shadow leading-none">
-                  Share
+                </button>
+                <span className="text-[10px] font-mono font-bold text-white mt-0.5">
+                  {currentPyes.sharesCount || 0}
                 </span>
-              </button>
+              </div>
 
-              {/* 6. MORE / OPTIONS Action */}
-              <div className="relative">
+              {/* 7. More Options Drawer Toggle */}
+              <div className="relative flex flex-col items-center">
                 <button
                   onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                  className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition"
+                  className="p-2.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white hover:scale-110 active:scale-90 transition shadow-lg"
                   title="More Options"
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  <MoreVertical className="w-5 h-5" />
                 </button>
 
+                {/* More Options Dropdown */}
                 {showOptionsMenu && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 bottom-10 w-44 bg-[#0d0d16] border border-white/10 rounded-2xl p-1.5 shadow-2xl z-50 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150"
-                  >
+                  <div className="absolute bottom-12 right-0 w-44 rounded-2xl bg-zinc-900/95 border border-white/10 p-1.5 shadow-2xl backdrop-blur-xl z-50 text-xs text-zinc-200 animate-in fade-in zoom-in-95">
                     <button
                       onClick={() => {
                         setShowOptionsMenu(false);
-                        onReportItem(currentPyes.id, 'pyes', currentPyes.title || currentPyes.caption);
+                        onReportItem(currentPyes.id, 'pyes', currentPyes.caption);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 transition"
+                      className="w-full px-3 py-2 rounded-xl hover:bg-white/5 flex items-center gap-2 text-left"
                     >
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                      <span>Report Video</span>
+                      <Shield className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Report Content</span>
                     </button>
-
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(currentPyes.id);
-                        showToast(`Video ID copied: ${currentPyes.id}`);
                         setShowOptionsMenu(false);
+                        handleNext();
+                        showToast('Marked as not interested. Tuned recommendation engine.');
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2 transition"
+                      className="w-full px-3 py-2 rounded-xl hover:bg-white/5 flex items-center gap-2 text-left"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-[#FFA000]" />
-                      <span>Copy Video ID</span>
+                      <EyeOff className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Not Interested</span>
                     </button>
-
-                    {currentUser?.id === currentPyes.authorId && (
+                    {currentUser?.id !== currentPyes.authorId && (
                       <button
                         onClick={() => {
-                          if (confirm('Delete this PYES video?')) {
-                            Storage.deletePyes(currentPyes.id);
-                            refreshFeed();
-                            showToast('PYES video removed.');
-                            setShowOptionsMenu(false);
-                          }
+                          setShowOptionsMenu(false);
+                          Storage.blockUser(currentPyes.authorId);
+                          showToast(`Blocked @${currentPyes.author.username}`);
+                          handleNext();
                         }}
-                        className="w-full text-left px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/20 flex items-center gap-2 transition font-bold"
+                        className="w-full px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-400 flex items-center gap-2 text-left"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete PYES</span>
+                        <UserX className="w-3.5 h-3.5" />
+                        <span>Block Creator</span>
                       </button>
                     )}
                   </div>
@@ -1081,228 +1057,124 @@ export const PyeShorts: React.FC<PyeShortsProps> = ({
           )}
         </div>
 
-        {/* Up / Down Navigation Controls (Visible on PC & Tablet) */}
-        <div className="hidden sm:flex flex-col gap-3">
+        {/* DESKTOP SIDE QUICK NAVIGATORS (Up & Down Arrows) */}
+        <div className="hidden lg:flex flex-col gap-3">
           <button
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className="group flex flex-col items-center justify-center p-3.5 rounded-2xl bg-[#0f0f18] hover:bg-zinc-800 disabled:opacity-30 border border-white/10 text-white transition shadow-xl hover:scale-105 active:scale-95"
+            className="p-3 rounded-full bg-zinc-900 border border-white/10 text-white disabled:opacity-20 hover:bg-zinc-800 hover:border-[#FF007A]/50 transition shadow-xl"
             title="Previous PYES (Up Arrow / K)"
           >
-            <ChevronUp className="w-5 h-5 group-hover:text-[#FF007A] transition" />
-            <span className="text-[9px] font-mono text-zinc-500">↑</span>
+            <ChevronUp className="w-5 h-5" />
           </button>
-
           <button
             onClick={handleNext}
             disabled={currentIndex === pyesList.length - 1}
-            className="group flex flex-col items-center justify-center p-3.5 rounded-2xl bg-[#0f0f18] hover:bg-zinc-800 disabled:opacity-30 border border-white/10 text-white transition shadow-xl hover:scale-105 active:scale-95"
+            className="p-3 rounded-full bg-zinc-900 border border-white/10 text-white disabled:opacity-20 hover:bg-zinc-800 hover:border-[#FFA000]/50 transition shadow-xl"
             title="Next PYES (Down Arrow / J)"
           >
-            <ChevronDown className="w-5 h-5 group-hover:text-[#FFA000] transition" />
-            <span className="text-[9px] font-mono text-zinc-500">↓</span>
+            <ChevronDown className="w-5 h-5" />
           </button>
         </div>
+      </div>
 
-        {/* DESKTOP / TABLET DEDICATED SIDE COMMENTS PANEL */}
-        {showComments && (
-          <div className="hidden md:flex flex-col w-80 lg:w-96 h-full max-h-[820px] rounded-[32px] bg-[#0f0f18]/95 backdrop-blur-xl border border-white/10 p-4 shadow-2xl animate-in slide-in-from-right duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+      {/* COMMENTS MODAL DRAWER */}
+      {showComments && currentPyes && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md h-[70vh] max-h-[560px] rounded-t-3xl sm:rounded-3xl bg-[#0f0f18] border border-white/10 flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  PYES Comments
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-white/10 text-[10px] font-mono text-[#FFA000]">
-                  {comments.length}
-                </span>
+                <MessageCircle className="w-4 h-4 text-[#FF007A]" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  PYES Comments ({comments.length})
+                </h3>
               </div>
               <button
                 onClick={() => setShowComments(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition"
+                className="p-1 rounded-lg text-zinc-400 hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1 text-xs">
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {comments.length === 0 ? (
-                <div className="text-center text-xs text-zinc-500 py-16 flex flex-col items-center gap-2">
-                  <MessageCircle className="w-8 h-8 text-zinc-700" />
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500 text-xs">
                   <p>No comments on this PYES yet.</p>
-                  <p className="text-[11px] text-zinc-600">Be the first to share your thoughts!</p>
+                  <p className="text-[11px] text-zinc-600 mt-1">Be the first pioneer to leave a thought!</p>
                 </div>
               ) : (
-                comments.map((c) => (
-                  <div key={c.id} className="flex items-start gap-2.5 group">
+                comments.map((cmt) => (
+                  <div key={cmt.id} className="flex gap-2.5 text-xs">
                     <img
-                      src={c.author.avatar}
-                      alt={c.author.fullName}
+                      src={cmt.author.avatar}
+                      alt=""
                       className="w-7 h-7 rounded-full bg-zinc-800 object-cover shrink-0 mt-0.5"
                     />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <span className="font-semibold text-white truncate">{c.author.fullName}</span>
-                          <span className="text-[10px] text-zinc-400">@{c.author.username}</span>
-                        </div>
-                        {currentUser?.id === c.author.id && (
-                          <button
-                            onClick={() => handleDeleteComment(c.id)}
-                            className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-rose-400 transition p-1"
-                            title="Delete comment"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-white text-[11px]">
+                          {cmt.author.fullName}
+                        </span>
+                        <span className="text-[10px] text-zinc-500">
+                          @{cmt.author.username}
+                        </span>
                       </div>
-                      <p className="text-zinc-200 mt-0.5 leading-snug break-words">{c.text}</p>
-                      <div className="flex items-center gap-3 mt-1 text-[10px] text-zinc-500">
-                        <button
-                          onClick={() => handleLikeComment(c.id)}
-                          className={`flex items-center gap-1 hover:text-[#FF007A] transition ${
-                            c.isLiked ? 'text-[#FF007A] font-bold' : ''
-                          }`}
-                        >
-                          <Heart className={`w-3 h-3 ${c.isLiked ? 'fill-[#FF007A]' : ''}`} />
-                          <span>{c.likesCount || 0}</span>
-                        </button>
-                      </div>
+                      <p className="text-zinc-300 text-xs mt-0.5 leading-relaxed">{cmt.text}</p>
                     </div>
                   </div>
                 ))
               )}
             </div>
 
-            {/* Comment Composer */}
-            <form onSubmit={handleAddComment} className="pt-2 border-t border-white/10 flex gap-2">
+            {/* Input Box */}
+            <form onSubmit={handleAddComment} className="p-3 border-t border-white/10 flex gap-2">
               <input
                 type="text"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Leave a comment on PYES..."
-                className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700/60 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
+                className="flex-1 px-3.5 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
               />
               <button
                 type="submit"
                 disabled={!commentText.trim()}
-                className="p-2.5 rounded-xl bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white disabled:opacity-40 hover:opacity-95 transition"
+                className="p-2.5 rounded-xl bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white disabled:opacity-40 transition"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </button>
             </form>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* MOBILE SLIDE-UP COMMENTS DRAWER (Fits smoothly above bottom nav) */}
-        {showComments && (
-          <div className="md:hidden fixed inset-x-0 bottom-16 top-1/4 bg-[#0d0d16]/98 backdrop-blur-2xl border-t border-white/10 rounded-t-3xl p-4 z-40 flex flex-col animate-in slide-in-from-bottom duration-200 shadow-2xl">
-            {/* Drawer Handle */}
-            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-3" />
-
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  PYES Comments
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-white/10 text-[10px] font-mono text-[#FFA000]">
-                  {comments.length}
-                </span>
-              </div>
-              <button
-                onClick={() => setShowComments(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto py-3 space-y-3 text-xs">
-              {comments.length === 0 ? (
-                <div className="text-center text-xs text-zinc-500 py-12">
-                  No comments on this PYES yet. Be the first to share your thoughts!
-                </div>
-              ) : (
-                comments.map((c) => (
-                  <div key={c.id} className="flex items-start gap-2.5">
-                    <img
-                      src={c.author.avatar}
-                      alt={c.author.fullName}
-                      className="w-7 h-7 rounded-full bg-zinc-800 object-cover shrink-0 mt-0.5"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <span className="font-semibold text-white truncate">{c.author.fullName}</span>
-                          <span className="text-[10px] text-zinc-400">@{c.author.username}</span>
-                        </div>
-                        {currentUser?.id === c.author.id && (
-                          <button
-                            onClick={() => handleDeleteComment(c.id)}
-                            className="text-zinc-500 hover:text-rose-400 p-1"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-zinc-200 mt-0.5 leading-snug">{c.text}</p>
-                      <div className="flex items-center gap-3 mt-1 text-[10px] text-zinc-500">
-                        <button
-                          onClick={() => handleLikeComment(c.id)}
-                          className={`flex items-center gap-1 hover:text-[#FF007A] transition ${
-                            c.isLiked ? 'text-[#FF007A] font-bold' : ''
-                          }`}
-                        >
-                          <Heart className={`w-3 h-3 ${c.isLiked ? 'fill-[#FF007A]' : ''}`} />
-                          <span>{c.likesCount || 0}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Mobile Comment Composer (Positioned safely above bottom nav) */}
-            <form onSubmit={handleAddComment} className="pt-2 border-t border-white/10 flex gap-2">
-              <input
-                type="text"
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Leave a comment on PYES..."
-                className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700/60 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
-              />
-              <button
-                type="submit"
-                disabled={!commentText.trim()}
-                className="p-2.5 rounded-xl bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white disabled:opacity-40"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* MODALS */}
-      {/* 1. Original PYES Share Sheet */}
-      {currentPyes && (
+      {/* SHARE MODAL */}
+      {showShareModal && currentPyes && (
         <PyesShareModal
-          pyes={currentPyes}
-          currentUser={currentUser}
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
+          pyes={currentPyes}
+          currentUser={currentUser}
           onShowToast={showToast}
         />
       )}
 
-      {/* 2. Original PYES Creator Screen */}
-      <CreatePyesModal
-        currentUser={currentUser}
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={handlePyesCreated}
-        onOpenAuth={() => onOpenAuth('signup')}
-      />
+      {/* CREATE PYES MODAL */}
+      {showCreateModal && (
+        <CreatePyesModal
+          currentUser={currentUser}
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={(newPyes) => {
+            setPyesList((prev) => [newPyes, ...prev]);
+            setCurrentIndex(0);
+            showToast('Your PYES transmission is now broadcasting!');
+          }}
+          onOpenAuth={onOpenAuth}
+        />
+      )}
     </div>
   );
 };

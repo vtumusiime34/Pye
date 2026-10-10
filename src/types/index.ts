@@ -15,9 +15,13 @@ export interface BusinessProfile {
   website?: string;
   contactEmail?: string;
   location?: string;
-  description: string;
+  description?: string;
+  taxOrRegNumber?: string;
   verificationStatus: 'unverified' | 'pending' | 'verified';
-  registeredAt: string;
+  monthlyRevenueCoins?: number;
+  totalCustomers?: number;
+  conversionRate?: number;
+  registeredAt?: string;
 }
 
 export interface User {
@@ -96,9 +100,10 @@ export interface Post {
   isSaved?: boolean;
   isPromoted?: boolean;
   createdAt: string;
+  expiresAt?: string; // 24-hour expiration for Universe/Pulses
 }
 
-// Officially called PYES (PYE's original short-form vertical video experience)
+// Officially called PYES (PYE's original short-form vertical reel experience)
 export interface PyesVideo {
   id: string;
   authorId: string;
@@ -111,8 +116,9 @@ export interface PyesVideo {
   };
   title?: string;
   caption: string;
-  videoUrl: string;
+  videoUrl: string; // Media URL (can be video or photo)
   posterUrl: string;
+  mediaType?: 'video' | 'image'; // Supports both videos and photos!
   musicTitle?: string;
   musicAuthor?: string;
   hashtags: string[];
@@ -128,6 +134,28 @@ export interface PyesVideo {
   isSaved?: boolean;
   isPromoted?: boolean;
   createdAt: string;
+  expiresAt?: string; // 24-hour expiration for PYES
+}
+
+// WebRTC Real-Time Calling System
+export type CallType = 'voice' | 'video';
+export type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'connected' | 'ended' | 'rejected' | 'failed';
+
+export interface CallSession {
+  id: string;
+  callerId: string;
+  callerName: string;
+  callerAvatar: string;
+  receiverId: string;
+  receiverName: string;
+  receiverAvatar: string;
+  type: CallType;
+  status: CallStatus;
+  startedAt?: string;
+  endedAt?: string;
+  offer?: RTCSessionDescriptionInit;
+  answer?: RTCSessionDescriptionInit;
+  candidates?: RTCIceCandidateInit[];
 }
 
 // Alias for backward compatibility
@@ -467,18 +495,6 @@ export interface SponsoredSpaceRequest {
   budgetCoins: number;
   status: 'pending' | 'approved' | 'active' | 'ended' | 'rejected';
   createdAt: string;
-}
-
-export interface BusinessProfile {
-  businessName: string;
-  category: string;
-  website?: string;
-  taxOrRegNumber?: string;
-  verificationStatus: 'verified' | 'pending' | 'unverified';
-  monthlyRevenueCoins?: number;
-  totalCustomers?: number;
-  conversionRate?: number;
-  registeredAt?: string;
 }
 
 export interface PaymentMethodConfig {

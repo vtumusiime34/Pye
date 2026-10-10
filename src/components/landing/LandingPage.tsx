@@ -1,8 +1,8 @@
 import React from 'react';
 import {
   Flame,
-  Tv,
-  Radio,
+  Music,
+  Gamepad2,
   Users2,
   Trophy,
   Coins,
@@ -13,6 +13,7 @@ import {
   Heart,
   MessageSquare,
 } from 'lucide-react';
+import { PyeLogo } from '../ui/PyeLogo';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -32,26 +33,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onExplore }) 
       {/* Top Navbar */}
       <nav className="relative z-20 max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#ff1493] via-[#ff8c00] to-[#ffd700] p-[2px]">
-            <div className="w-full h-full bg-[#0d0d14] rounded-2xl flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-6 h-6" fill="none">
-                <path
-                  d="M28 24h24a18 18 0 0 1 0 36H42v20H28V24zm14 12v12h10a6 6 0 0 0 0-12H42z"
-                  fill="url(#landingGrad)"
-                />
-                <circle cx="76" cy="42" r="8" fill="#ffd700" />
-                <defs>
-                  <linearGradient id="landingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#ff1493" />
-                    <stop offset="100%" stopColor="#ff8c00" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-          </div>
-          <div className="text-sm font-black tracking-widest uppercase font-display">
-            PYE SOCIAL UNIVERSE
-          </div>
+          <PyeLogo size={38} showText />
         </div>
 
         <div className="flex items-center gap-3">
@@ -63,7 +45,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onExplore }) 
           </button>
           <button
             onClick={onEnter}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ff1493] to-[#ff8c00] text-xs font-bold text-white shadow-lg shadow-[#ff1493]/25 hover:opacity-95 transition"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-xs font-bold text-white shadow-lg shadow-[#FF007A]/25 hover:opacity-95 transition"
           >
             Sign In / Join
           </button>
@@ -73,7 +55,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onExplore }) 
       {/* Hero Section */}
       <section className="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-24 text-center space-y-8">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300">
-          <Sparkles className="w-3.5 h-3.5 text-[#ffd700]" />
+          <Sparkles className="w-3.5 h-3.5 text-[#FFA000]" />
           <span>The Next Frontier of Social Media Architecture</span>
         </div>
 
@@ -83,14 +65,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onExplore }) 
             <span className="pye-gradient-text">It's a universe.</span>
           </h1>
           <p className="text-sm sm:text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-            PYE fuses short-form vertical reels, high-definition tube videos, low-latency live streaming, virtual multi-speaker summits, and an authoritative digital economy into one seamless ecosystem.
+            PYE fuses short-form vertical reels (PYES), curated PYE Sounds, multiplayer PYE Games, virtual multi-speaker summits, and a centralized Monetization Center into one seamless ecosystem.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
           <button
             onClick={onEnter}
-            className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#ff1493] via-[#ff8c00] to-[#ffd700] text-black font-extrabold text-sm shadow-xl shadow-[#ff1493]/20 hover:scale-105 active:scale-95 transition flex items-center gap-2"
+            className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#FF007A] via-[#FF5500] to-[#FFA000] text-white font-extrabold text-sm shadow-xl shadow-[#FF007A]/20 hover:scale-105 active:scale-95 transition flex items-center gap-2"
           >
             <span>Enter PYE Universe</span>
             <ArrowRight className="w-4 h-4" />
@@ -107,7 +89,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onExplore }) 
         {/* Hero Pillars Showcase Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-12 text-left">
           <div className="p-4 rounded-2xl bg-[#0f0f18]/80 border border-white/10 backdrop-blur-md space-y-2">
-            <Flame className="w-6 h-6 text-[#ff1493]" />
+            <Flame className="w-6 h-6 text-[#FF007A]" />
             <h3 className="text-sm font-bold text-white">PYES</h3>
             <p className="text-xs text-zinc-400">
               PYE&apos;s original vertical video universe with haptic interactions, live audio, and instant creator tipping.
@@ -115,18 +97,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onExplore }) 
           </div>
 
           <div className="p-4 rounded-2xl bg-[#0f0f18]/80 border border-white/10 backdrop-blur-md space-y-2">
-            <Tv className="w-6 h-6 text-[#ff8c00]" />
-            <h3 className="text-sm font-bold text-white">PYE Tube</h3>
+            <Music className="w-6 h-6 text-[#FFA000]" />
+            <h3 className="text-sm font-bold text-white">PYE Sounds</h3>
             <p className="text-xs text-zinc-400">
-              Long-form documentary, masterclass, and tech broadcasts with full scrub control.
+              High-fidelity sound catalog, audio waveforms, discovery playlists, and creator original music tracks.
             </p>
           </div>
 
           <div className="p-4 rounded-2xl bg-[#0f0f18]/80 border border-white/10 backdrop-blur-md space-y-2">
-            <Radio className="w-6 h-6 text-rose-500" />
-            <h3 className="text-sm font-bold text-white">PYE Live</h3>
+            <Gamepad2 className="w-6 h-6 text-cyan-400" />
+            <h3 className="text-sm font-bold text-white">PYE Games</h3>
             <p className="text-xs text-zinc-400">
-              Sub-second live streaming, real-time viewer chat, and virtual coin tipping.
+              Multiplayer board & strategy games: Chess, Checkers, Ludo, Snakes & Ladders, and PYE Tycoon.
             </p>
           </div>
 
@@ -174,7 +156,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onExplore }) 
 
       {/* Footer */}
       <footer className="relative z-10 max-w-7xl mx-auto px-6 py-8 border-t border-white/5 flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
-        <div>PYE SOCIAL UNIVERSE © 2026. Built for high-speed, modern social interaction.</div>
+        <div className="flex items-center gap-2">
+          <PyeLogo size={20} />
+          <span>PYE SOCIAL UNIVERSE © 2026. Built for high-speed, modern social interaction.</span>
+        </div>
         <div className="flex gap-4">
           <span onClick={onEnter} className="hover:text-white cursor-pointer">
             Sign In

@@ -98,6 +98,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
       onClose();
     } else if (createType === 'short') {
       if (!title.trim() && !caption.trim()) return;
+      const isImg = mediaType === 'image' || Boolean(mediaUrl && (mediaUrl.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(mediaUrl)));
       Storage.addPyes({
         authorId: currentUser.id,
         author: {
@@ -111,9 +112,13 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         caption: caption.trim() || title.trim(),
         videoUrl:
           mediaUrl.trim() ||
-          'https://vjs.zencdn.net/v/oceans.mp4',
+          (isImg
+            ? 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1000&auto=format&fit=crop&q=80'
+            : 'https://vjs.zencdn.net/v/oceans.mp4'),
         posterUrl:
+          mediaUrl.trim() ||
           'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=600&auto=format&fit=crop&q=80',
+        mediaType: isImg ? 'image' : 'video',
         musicTitle: 'Original PYES Stem',
         musicAuthor: currentUser.fullName,
         hashtags: tagsArray.length > 0 ? tagsArray : ['PYES', 'pulse'],
@@ -121,7 +126,7 @@ export const CreateModal: React.FC<CreateModalProps> = ({
         visibility: privacy === 'followers' ? 'followers' : 'public',
         moderationStatus: 'approved',
       });
-      onSuccess('PYES video broadcasted successfully!');
+      onSuccess('PYES transmission broadcasted successfully!');
       onClose();
     } else if (createType === 'sound') {
       if (!title.trim() && !caption.trim()) return;

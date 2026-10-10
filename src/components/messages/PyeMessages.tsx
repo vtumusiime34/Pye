@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Send,
@@ -8,15 +8,22 @@ import {
   CheckCircle,
   X,
   Trash2,
+  Phone,
+  Video,
 } from 'lucide-react';
-import { Conversation, User } from '../../types';
+import { Conversation, User, CallType } from '../../types';
 import { Storage } from '../../services/storage';
+import { WebRTC } from '../../services/webrtc';
+import { CallModal } from './CallModal';
+import { PyeLogo } from '../ui/PyeLogo';
 
 interface PyeMessagesProps {
   currentUser: User | null;
   onOpenAuth: () => void;
   onReportItem: (itemId: string, itemType: string, title?: string) => void;
   onViewProfile: (userId: string) => void;
+  initialConversationId?: string;
+  initialTargetUser?: User | null;
 }
 
 export const PyeMessages: React.FC<PyeMessagesProps> = ({
@@ -24,14 +31,53 @@ export const PyeMessages: React.FC<PyeMessagesProps> = ({
   onOpenAuth,
   onReportItem,
   onViewProfile,
+  initialConversationId,
+  initialTargetUser,
 }) => {
-  const [conversations, setConversations] = useState<Conversation[]>(() =>
-    Storage.getConversations()
-  );
-  const [activeConvId, setActiveConvId] = useState<string>(() => conversations[0]?.id || '');
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const list = Storage.getConversations();
+    if (initialTargetUser && currentUser) {
+      const conv = Storage.getOrCreateConversation(currentUser.id, initialTargetUser);
+      if (!list.some((c) => c.id === conv.id)) {
+        return [conv, ...list];
+      }
+    }
+    return list;
+  });
+
+  const [activeConvId, setActiveConvId] = useState<string>(() => {
+    if (initialConversationId) return initialConversationId;
+    if (initialTargetUser && currentUser) {
+      const conv = Storage.getOrCreateConversation(currentUser.id, initialTargetUser);
+      return conv.id;
+    }
+    return conversations[0]?.id || '';
+  });
+
   const [msgInput, setMsgInput] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [showCallModal, setShowCallModal] = useState<boolean>(false);
+
+  // Listen to incoming call events
+  useEffect(() => {
+    const unsubscribe = WebRTC.subscribe((event) => {
+      if (event.type === 'incoming_call') {
+        setShowCallModal(true);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (initialTargetUser && currentUser) {
+      const conv = Storage.getOrCreateConversation(currentUser.id, initialTargetUser);
+      setConversations(Storage.getConversations());
+      setActiveConvId(conv.id);
+    } else if (initialConversationId) {
+      setActiveConvId(initialConversationId);
+    }
+  }, [initialTargetUser, initialConversationId, currentUser]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -39,6 +85,25 @@ export const PyeMessages: React.FC<PyeMessagesProps> = ({
   };
 
   const activeConversation = conversations.find((c) => c.id === activeConvId);
+
+  const handleStartCall = async (type: CallType) => {
+    if (!currentUser) {
+      onOpenAuth();
+      return;
+    }
+    if (!activeConversation) return;
+
+    setShowCallModal(true);
+    const res = await WebRTC.startCall(
+      currentUser,
+      activeConversation.participant,
+      type
+    );
+    if (!res.ok) {
+      showToast(res.error || 'Could not initiate call');
+      setShowCallModal(false);
+    }
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,8 +168,8 @@ export const PyeMessages: React.FC<PyeMessagesProps> = ({
         <div className="p-4 border-b border-white/5 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-[#ff1493]" />
-              <span>Direct Messages</span>
+              <PyeLogo size={20} />
+              <span>PYE Chat</span>
             </h2>
           </div>
 
@@ -191,8 +256,31 @@ export const PyeMessages: React.FC<PyeMessagesProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Voice Call Button */}
               <button
+                type="button"
+                onClick={() => handleStartCall('voice')}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-emerald-400 border border-white/5 transition flex items-center gap-1.5"
+                title="Start Voice Call (WebRTC)"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-xs font-semibold text-zinc-300">Voice</span>
+              </button>
+
+              {/* Video Call Button */}
+              <button
+                type="button"
+                onClick={() => handleStartCall('video')}
+                className="p-2 rounded-xl bg-gradient-to-r from-[#FF007A]/20 to-[#FFA000]/20 hover:from-[#FF007A]/30 hover:to-[#FFA000]/30 text-[#FFA000] border border-[#FF007A]/30 transition flex items-center gap-1.5 shadow"
+                title="Start Video Call (WebRTC)"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-xs font-semibold text-white">Video</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() =>
                   onReportItem(
                     activeConversation.id,
@@ -200,7 +288,7 @@ export const PyeMessages: React.FC<PyeMessagesProps> = ({
                     `Conversation with @${activeConversation.participant.username}`
                   )
                 }
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-white/5 transition"
+                className="p-2 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-white/5 transition"
                 title="Report Conversation"
               >
                 <Shield className="w-4 h-4" />
@@ -251,6 +339,12 @@ export const PyeMessages: React.FC<PyeMessagesProps> = ({
         <div className="flex-1 flex items-center justify-center text-xs text-zinc-500">
           Select a conversation from the left to start messaging.
         </div>
+      )}
+      {showCallModal && (
+        <CallModal
+          currentUserId={currentUser?.id || ''}
+          onClose={() => setShowCallModal(false)}
+        />
       )}
     </div>
   );

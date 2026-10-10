@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Bell, Heart, UserPlus, Radio, MessageCircle, Calendar, CheckCheck, X } from 'lucide-react';
 import { NotificationItem, User } from '../../types';
 import { Storage } from '../../services/storage';
+import { PyeLogo } from '../ui/PyeLogo';
 
 interface NotificationsDrawerProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
       <div className="w-full max-w-sm h-full bg-[#0d0d16] border-l border-white/10 shadow-2xl flex flex-col p-4 space-y-4 animate-in slide-in-from-right duration-200">
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-[#ff1493]" />
+            <PyeLogo size={20} />
             <h2 className="text-sm font-bold text-white uppercase tracking-wider">
               Universe Notifications
             </h2>

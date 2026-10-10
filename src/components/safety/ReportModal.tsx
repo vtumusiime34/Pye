@@ -77,11 +77,19 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         </div>
 
         {submitted ? (
-          <div className="py-8 text-center space-y-2">
+          <div className="py-6 text-center space-y-3">
             <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto" />
-            <h4 className="text-sm font-bold text-white">Report Submitted</h4>
-            <p className="text-xs text-zinc-400">
-              Our moderation team reviews every queued report. Thank you for keeping PYE Universe safe.
+            <h4 className="text-sm font-bold text-white">Report Dispatched to Moderation</h4>
+            <p className="text-xs text-zinc-300">
+              Notification dispatched to the authorized APPIX moderation team:
+            </p>
+            <div className="p-2.5 rounded-xl bg-zinc-900 border border-white/5 text-[10px] font-mono text-zinc-400 space-y-0.5 text-left">
+              <div>• abenaitwelinus153@gmail.com</div>
+              <div>• appixconsultations@proton.me</div>
+              <div>• ainomugishatimothy2011@gmail.com</div>
+            </div>
+            <p className="text-[11px] text-emerald-400 font-semibold">
+              Admins have queued this case for investigation. Thank you for protecting PYE.
             </p>
           </div>
         ) : (

@@ -57,7 +57,8 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [videoSource, setVideoSource] = useState<'upload' | 'url' | 'sample'>('upload');
+  const [mediaKind, setMediaKind] = useState<'video' | 'photo'>('video');
+  const [videoSource, setVideoSource] = useState<'upload' | 'camera' | 'url' | 'sample'>('upload');
   const [videoFileUrl, setVideoFileUrl] = useState<string>('');
   const [videoInputUrl, setVideoInputUrl] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
@@ -70,29 +71,128 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Advanced Editing Controls
+  const [selectedFilter, setSelectedFilter] = useState<'none' | 'cyber' | 'warm' | 'noir' | 'vivid'>('none');
+  const [includeWatermark, setIncludeWatermark] = useState<boolean>(true);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordSeconds, setRecordSeconds] = useState<number>(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<any>(null);
+
+  const filterStyles: Record<string, string> = {
+    none: '',
+    cyber: 'contrast(1.25) saturate(1.4) hue-rotate(15deg)',
+    warm: 'sepia(0.35) saturate(1.3) contrast(1.1)',
+    noir: 'grayscale(1) contrast(1.35) brightness(0.95)',
+    vivid: 'saturate(1.7) contrast(1.2)',
+  };
+
+  const startCamera = async () => {
+    setErrorMsg(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
+        audio: true,
+      });
+      cameraStreamRef.current = stream;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        cameraVideoRef.current.play();
+      }
+
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/mp4' });
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (ev.target?.result) {
+            setVideoFileUrl(ev.target.result as string);
+            setFileName(`camera_pyes_${Date.now()}.mp4`);
+            setVideoSource('upload');
+          }
+        };
+        reader.readAsDataURL(blob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordSeconds(0);
+      timerRef.current = setInterval(() => {
+        setRecordSeconds((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      setErrorMsg('Camera or microphone permission was denied.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const handleAddMention = (uname: string) => {
+    const handle = `@${uname} `;
+    if (!caption.includes(`@${uname}`)) {
+      setCaption((prev) => `${prev} ${handle}`.trim());
+    }
+  };
 
   const activeVideoUrl =
     videoSource === 'upload' ? videoFileUrl : videoSource === 'url' ? videoInputUrl : videoFileUrl;
+
+  const isImageMedia = mediaKind === 'photo' || Boolean(
+    activeVideoUrl && (
+      activeVideoUrl.startsWith('data:image') ||
+      /\.(jpg|jpeg|png|webp|gif|avif)($|\?)/i.test(activeVideoUrl)
+    )
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMsg(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('video/')) {
-      setErrorMsg('Please select a valid vertical video file (MP4, WebM, MOV).');
+    const isImg = file.type.startsWith('image/');
+    const isVid = file.type.startsWith('video/');
+
+    if (!isImg && !isVid) {
+      setErrorMsg('Please select a valid image (JPG, PNG, WebP) or video file (MP4, WebM).');
       return;
     }
 
+    setMediaKind(isImg ? 'photo' : 'video');
     setFileName(file.name);
-    const objectUrl = URL.createObjectURL(file);
-    setVideoFileUrl(objectUrl);
+
+    // Read as persistent Data URL so media survives page refreshes
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setVideoFileUrl(event.target.result as string);
+      }
+    };
+    reader.onerror = () => {
+      setErrorMsg('Failed to process file. Please try another file.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSelectSample = (sample: (typeof SAMPLE_PYES_TEMPLATES)[0]) => {
     setVideoSource('sample');
+    setMediaKind('video');
     setVideoFileUrl(sample.videoUrl);
     setFileName(sample.label);
     if (!title) setTitle(sample.title);
@@ -120,9 +220,9 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
       return;
     }
 
-    const finalVideoUrl = activeVideoUrl.trim();
-    if (!finalVideoUrl) {
-      setErrorMsg('Please upload a video, enter a video URL, or choose a template.');
+    const finalMediaUrl = activeVideoUrl.trim();
+    if (!finalMediaUrl) {
+      setErrorMsg('Please upload a video or photo, enter a media URL, or choose a template.');
       return;
     }
 
@@ -133,6 +233,7 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const isImg = isImageMedia;
       const newPyes = Storage.addPyes({
         authorId: currentUser.id,
         author: {
@@ -144,9 +245,11 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
         },
         title: title.trim() || caption.slice(0, 32),
         caption: caption.trim(),
-        videoUrl: finalVideoUrl,
-        posterUrl:
-          'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+        videoUrl: finalMediaUrl,
+        mediaType: isImg ? 'image' : 'video',
+        posterUrl: isImg
+          ? finalMediaUrl
+          : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
         musicTitle: musicTitle.trim() || 'Original PYES Stem',
         musicAuthor: currentUser.fullName,
         hashtags: selectedTags.length > 0 ? selectedTags : ['PYES'],
@@ -258,7 +361,7 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="video/*"
+                      accept="video/*,image/*"
                       onChange={handleFileChange}
                       className="hidden"
                     />
@@ -268,10 +371,10 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
                     >
                       <UploadCloud className="w-8 h-8 text-[#FFA000]" />
                       <div className="text-xs font-semibold text-white">
-                        {fileName ? fileName : 'Choose vertical video'}
+                        {fileName ? fileName : 'Choose video or photo'}
                       </div>
                       <p className="text-[10px] text-zinc-400">
-                        MP4, WebM, MOV · Recommended 9:16 aspect ratio
+                        MP4, WebM, MOV, JPG, PNG · 9:16 vertical recommended
                       </p>
                     </div>
                   </div>
@@ -283,11 +386,11 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
                       type="url"
                       value={videoInputUrl}
                       onChange={(e) => setVideoInputUrl(e.target.value)}
-                      placeholder="https://domain.com/video.mp4"
+                      placeholder="https://domain.com/media.mp4 or .jpg"
                       className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
                     />
                     <p className="text-[10px] text-zinc-400 mt-1">
-                      Direct HTTPS video link (MP4/WebM)
+                      Direct HTTPS video or image link
                     </p>
                   </div>
                 )}
@@ -314,18 +417,26 @@ export const CreatePyesModal: React.FC<CreatePyesModalProps> = ({
                   </div>
                 )}
 
-                {/* 9:16 Video Live Preview Box */}
+                {/* 9:16 Media Live Preview Box */}
                 <div className="relative aspect-[9/16] w-full max-w-[210px] mx-auto rounded-2xl overflow-hidden bg-black border border-white/10 shadow-lg flex items-center justify-center">
                   {activeVideoUrl ? (
-                    <video
-                      ref={previewVideoRef}
-                      src={activeVideoUrl}
-                      playsInline
-                      muted
-                      autoPlay
-                      loop
-                      className="w-full h-full object-cover"
-                    />
+                    isImageMedia ? (
+                      <img
+                        src={activeVideoUrl}
+                        alt="Preview"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <video
+                        ref={previewVideoRef}
+                        src={activeVideoUrl}
+                        playsInline
+                        muted
+                        autoPlay
+                        loop
+                        className="w-full h-full object-cover"
+                      />
+                    )
                   ) : (
                     <div className="text-center p-3 text-zinc-600 space-y-1">
                       <Play className="w-8 h-8 mx-auto opacity-30" />

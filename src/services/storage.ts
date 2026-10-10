@@ -342,8 +342,108 @@ export const KAI_USER: User = {
   createdAt: '2026-03-10T00:00:00Z',
 };
 
+// Administrator Accounts requested by specification: LTG (Linus The Great), Trix, and Timothy
+export const LTG_USER: User = {
+  id: 'user_ltg',
+  username: 'ltg',
+  fullName: 'Linus The Great',
+  email: 'abenaitwelinus153@gmail.com',
+  gender: 'boy',
+  avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=LinusTheGreat&backgroundColor=FF007A,FFA000',
+  banner: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80',
+  bio: 'Founder, Chief Architect & System Lead at APPIX. Administrator of PYE Social Universe.',
+  isVerified: true,
+  pieId: 'PYE-0008',
+  role: 'admin',
+  followersCount: 154000, // 100K+ Diamond Blue Milestone
+  followingCount: 42,
+  likesCount: 89000,
+  postsCount: 12,
+  shortsCount: 6,
+  silverCoins: 50000,
+  goldCoins: 2500,
+  privacySettings: {
+    isPrivateAccount: false,
+    whoCanMessage: 'everyone',
+    whoCanComment: 'everyone',
+    whoCanMention: 'everyone',
+    allowDownload: true,
+    showActivityStatus: true,
+  },
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
+export const TRIX_USER: User = {
+  id: 'user_trix',
+  username: 'trix',
+  fullName: 'Trix',
+  email: 'appixconsultations@proton.me',
+  gender: 'boy',
+  avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=TrixPye&backgroundColor=FF007A,FFA000',
+  banner: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80',
+  bio: 'Core Operations, Platform Architecture & Security Lead at APPIX. Administrator of PYE.',
+  isVerified: true,
+  pieId: 'PYE-0009',
+  role: 'admin',
+  followersCount: 68000, // 50K+ Solar Yellow Milestone
+  followingCount: 38,
+  likesCount: 34000,
+  postsCount: 8,
+  shortsCount: 4,
+  silverCoins: 35000,
+  goldCoins: 1800,
+  privacySettings: {
+    isPrivateAccount: false,
+    whoCanMessage: 'everyone',
+    whoCanComment: 'everyone',
+    whoCanMention: 'everyone',
+    allowDownload: true,
+    showActivityStatus: true,
+  },
+  createdAt: '2026-01-02T00:00:00Z',
+};
+
+export const TIMOTHY_USER: User = {
+  id: 'user_timothy',
+  username: 'timothy',
+  fullName: 'Timothy Ainomugisha',
+  email: 'ainomugishatimothy2011@gmail.com',
+  gender: 'boy',
+  avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=TimothyA&backgroundColor=FF007A,FFA000',
+  banner: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&auto=format&fit=crop&q=80',
+  bio: 'Platform Operations, Partner Relations & Moderation Lead at APPIX. Administrator of PYE.',
+  isVerified: true,
+  pieId: 'PYE-0010',
+  role: 'admin',
+  followersCount: 14500, // 10K+ White Milestone
+  followingCount: 29,
+  likesCount: 9200,
+  postsCount: 5,
+  shortsCount: 3,
+  silverCoins: 25000,
+  goldCoins: 1200,
+  privacySettings: {
+    isPrivateAccount: false,
+    whoCanMessage: 'everyone',
+    whoCanComment: 'everyone',
+    whoCanMention: 'everyone',
+    allowDownload: true,
+    showActivityStatus: true,
+  },
+  createdAt: '2026-01-05T00:00:00Z',
+};
+
+export const AUTHORIZED_MODERATION_EMAILS = [
+  'abenaitwelinus153@gmail.com',
+  'appixconsultations@proton.me',
+  'ainomugishatimothy2011@gmail.com',
+];
+
 export const SEED_USERS: User[] = [
   OFFICIAL_PYE_USER,
+  LTG_USER,
+  TRIX_USER,
+  TIMOTHY_USER,
   MAYA_USER,
   ELENA_USER,
   SOPHIA_USER,
@@ -374,7 +474,7 @@ const WELCOME_POST: Post = {
   createdAt: '2026-09-26T00:00:00Z',
 };
 
-// High-fidelity starter PYES videos (fast, verified CDN videos)
+// High-fidelity starter PYES (videos & photography, active within 24h)
 const STARTER_PYES: PyesVideo[] = [
   {
     id: 'pyes_1',
@@ -390,15 +490,17 @@ const STARTER_PYES: PyesVideo[] = [
     caption: 'Experience the 60fps vertical reel pipeline in PYES. Tap twice to heart! ✨ #ocean #PYES #ambient',
     videoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
     posterUrl: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=600&auto=format&fit=crop&q=80',
+    mediaType: 'video',
     musicTitle: 'Oceanic Resonator 432Hz — PYE Sound Labs',
     musicAuthor: 'PYE Sound Labs',
     hashtags: ['ocean', 'PYES', 'visuals', 'ambient'],
     spaceSlug: 'art',
-    likesCount: 0,
-    commentsCount: 0,
-    sharesCount: 0,
-    viewsCount: 1,
-    createdAt: '2026-09-26T12:00:00Z',
+    likesCount: 24,
+    commentsCount: 6,
+    sharesCount: 3,
+    viewsCount: 142,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 3).toISOString(),
+    expiresAt: new Date(Date.now() + 3600 * 1000 * 21).toISOString(),
   },
   {
     id: 'pyes_2',
@@ -414,15 +516,43 @@ const STARTER_PYES: PyesVideo[] = [
     caption: 'Synthesizing kinetic waveform harmonies across frequencies. Turn audio on! 🎧 #modular #synth #sounddesign #PYES',
     videoUrl: 'https://cdn.jsdelivr.net/gh/mediaelement/mediaelement-files@master/echo-hereweare.mp4',
     posterUrl: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=600&auto=format&fit=crop&q=80',
+    mediaType: 'video',
     musicTitle: 'Echoes of the Universe — Maya Lin',
     musicAuthor: 'Maya Lin',
     hashtags: ['modular', 'synth', 'sounddesign', 'PYES'],
     spaceSlug: 'music',
-    likesCount: 0,
-    commentsCount: 0,
-    sharesCount: 0,
-    viewsCount: 1,
-    createdAt: '2026-09-25T18:00:00Z',
+    likesCount: 19,
+    commentsCount: 4,
+    sharesCount: 2,
+    viewsCount: 98,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 5).toISOString(),
+    expiresAt: new Date(Date.now() + 3600 * 1000 * 19).toISOString(),
+  },
+  {
+    id: 'pyes_photo_1',
+    authorId: ALEX_USER.id,
+    author: {
+      id: ALEX_USER.id,
+      username: ALEX_USER.username,
+      fullName: ALEX_USER.fullName,
+      avatar: ALEX_USER.avatar,
+      isVerified: true,
+    },
+    title: 'Cyberpunk Architecture & Neon Horizon',
+    caption: 'High-res photography transmission on PYES. Uncompressed textures under dynamic ambient lighting. 📸 #architecture #cyber #photography #PYES',
+    videoUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&auto=format&fit=crop&q=80',
+    posterUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=600&auto=format&fit=crop&q=80',
+    mediaType: 'image',
+    musicTitle: 'Midnight Ambient Stems — Alex Vance',
+    musicAuthor: 'Alex Vance',
+    hashtags: ['architecture', 'cyber', 'photography', 'PYES'],
+    spaceSlug: 'art',
+    likesCount: 31,
+    commentsCount: 8,
+    sharesCount: 5,
+    viewsCount: 210,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
+    expiresAt: new Date(Date.now() + 3600 * 1000 * 22).toISOString(),
   },
   {
     id: 'pyes_3',
@@ -438,15 +568,43 @@ const STARTER_PYES: PyesVideo[] = [
     caption: 'Generative petals unfurling in real-time raytraced simulation. #generative #3d #flora #art #PYES',
     videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
     posterUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80',
+    mediaType: 'video',
     musicTitle: 'Chromatic Flow — Alex Vance',
     musicAuthor: 'Alex Vance',
     hashtags: ['generative', '3d', 'technology', 'art', 'PYES'],
     spaceSlug: 'technology',
-    likesCount: 0,
-    commentsCount: 0,
-    sharesCount: 0,
-    viewsCount: 1,
-    createdAt: '2026-09-24T15:30:00Z',
+    likesCount: 15,
+    commentsCount: 3,
+    sharesCount: 1,
+    viewsCount: 85,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 7).toISOString(),
+    expiresAt: new Date(Date.now() + 3600 * 1000 * 17).toISOString(),
+  },
+  {
+    id: 'pyes_photo_2',
+    authorId: MAYA_USER.id,
+    author: {
+      id: MAYA_USER.id,
+      username: MAYA_USER.username,
+      fullName: MAYA_USER.fullName,
+      avatar: MAYA_USER.avatar,
+      isVerified: true,
+    },
+    title: 'Analog Synthesizer Patch Cord Geometry',
+    caption: 'Every cable maps an acoustic modulation path. Preserving pure analog signal paths. 🎛️ #analog #modular #soundengineering #PYES',
+    videoUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop&q=80',
+    posterUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
+    mediaType: 'image',
+    musicTitle: 'Analog Resonator Suite — Maya Lin',
+    musicAuthor: 'Maya Lin',
+    hashtags: ['analog', 'modular', 'soundengineering', 'PYES'],
+    spaceSlug: 'music',
+    likesCount: 42,
+    commentsCount: 11,
+    sharesCount: 7,
+    viewsCount: 260,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 1).toISOString(),
+    expiresAt: new Date(Date.now() + 3600 * 1000 * 23).toISOString(),
   },
   {
     id: 'pyes_4',
@@ -684,8 +842,11 @@ class StorageService {
     } else {
       const updated = [...existingUsers];
       for (const su of SEED_USERS) {
-        if (!updated.some((u) => u.id === su.id || u.username.toLowerCase() === su.username.toLowerCase())) {
+        const found = updated.find((u) => u.id === su.id || u.username.toLowerCase() === su.username.toLowerCase());
+        if (!found) {
           updated.push(su);
+        } else if (su.role === 'admin') {
+          found.role = 'admin';
         }
       }
       this.setItem(STORAGE_KEYS.USERS, updated);
@@ -699,13 +860,32 @@ class StorageService {
     if (!localStorage.getItem(STORAGE_KEYS.LIKES)) {
       this.setItem(STORAGE_KEYS.LIKES, []);
     }
-    // Posts
-    if (!localStorage.getItem(STORAGE_KEYS.POSTS)) {
-      this.setItem(STORAGE_KEYS.POSTS, [WELCOME_POST]);
+
+    // Critical Requirement: Delete ONLY the first 7 Universes/Pulses that were created
+    // Preserves all user accounts, usernames, profile pictures, followers, following, coins, and newer content.
+    const deletedFirst7Key = 'pye_first_7_pulses_deleted_v2';
+    if (!localStorage.getItem(deletedFirst7Key)) {
+      const allPosts = this.getItem<Post[]>(STORAGE_KEYS.POSTS, []);
+      if (allPosts && allPosts.length > 0) {
+        // Sort chronologically ascending to identify the exact earliest 7 created
+        const sorted = [...allPosts].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        const earliest7Ids = new Set(sorted.slice(0, 7).map((p) => p.id));
+        const remainingPosts = allPosts.filter((p) => !earliest7Ids.has(p.id));
+        this.setItem(STORAGE_KEYS.POSTS, remainingPosts);
+      }
+      localStorage.setItem(deletedFirst7Key, 'true');
     }
-    // PYES
+
+    // Posts table initialization if empty
+    if (!localStorage.getItem(STORAGE_KEYS.POSTS)) {
+      this.setItem(STORAGE_KEYS.POSTS, []);
+    }
+
+    // PYES: Ensure active, non-expired PYES are present
     const existingPyes = this.getItem<PyesVideo[]>(STORAGE_KEYS.SHORTS, []);
-    if (!existingPyes || existingPyes.length === 0 || existingPyes.some((s) => s.videoUrl?.includes('mixkit'))) {
+    if (!existingPyes || existingPyes.length === 0 || existingPyes.some((s) => !s.mediaType || s.videoUrl?.includes('mixkit'))) {
       this.setItem(STORAGE_KEYS.SHORTS, STARTER_PYES);
     }
     // Spaces
@@ -1013,6 +1193,63 @@ class StorageService {
     return this.getFollows().filter((f) => f.followerId === userId);
   }
 
+  public getFollowers(userId: string): FollowRelationship[] {
+    return this.getFollows().filter((f) => f.followingId === userId);
+  }
+
+  public getFollowersUsers(userId: string): User[] {
+    const relationships = this.getFollowers(userId);
+    const users = this.getUsers();
+    return relationships
+      .map((r) => users.find((u) => u.id === r.followerId))
+      .filter((u): u is User => Boolean(u));
+  }
+
+  public getFollowingUsers(userId: string): User[] {
+    const relationships = this.getFollowing(userId);
+    const users = this.getUsers();
+    return relationships
+      .map((r) => users.find((u) => u.id === r.followingId))
+      .filter((u): u is User => Boolean(u));
+  }
+
+  public isUserBlocked(userId: string, targetId: string): boolean {
+    const blockedList = this.getBlockedUsers();
+    return blockedList.some((b) => b.id === targetId || b.id === userId);
+  }
+
+  public getOrCreateConversation(
+    currentUserId: string,
+    targetUser: { id: string; fullName: string; username: string; avatar: string; isVerified?: boolean }
+  ): Conversation {
+    const key = `pye_convos_${currentUserId}`;
+    const convos = this.getItem<Conversation[]>(key, []);
+    const existing = convos.find((c) => c.participant.id === targetUser.id);
+    if (existing) {
+      return existing;
+    }
+
+    const newConv: Conversation = {
+      id: `conv_${currentUserId}_${targetUser.id}`,
+      participant: {
+        id: targetUser.id,
+        username: targetUser.username,
+        fullName: targetUser.fullName,
+        avatar: targetUser.avatar,
+        isVerified: Boolean(targetUser.isVerified),
+        isOnline: true,
+      },
+      lastMessage: 'Conversation started',
+      lastMessageTime: 'Just now',
+      unreadCount: 0,
+      messages: [],
+    };
+
+    convos.unshift(newConv);
+    this.setItem(key, convos);
+    return newConv;
+  }
+
   public toggleFollow(targetUserId: string): boolean {
     const current = this.getCurrentUser();
     if (!current || current.id === targetUserId) return false;
@@ -1117,9 +1354,95 @@ class StorageService {
     return { isLiked, likesCount: count };
   }
 
-  // --- Real Posts System ---
-  public getPosts(): Post[] {
-    const posts = this.getItem<Post[]>(STORAGE_KEYS.POSTS, [WELCOME_POST]);
+  // --- Real Posts (Universe / Pulses) System ---
+  public getPosts(options?: { activeOnly?: boolean; spaceSlug?: string }): Post[] {
+    let posts = this.getItem<Post[]>(STORAGE_KEYS.POSTS, []);
+    const activeOnly = options?.activeOnly !== false;
+    const now = Date.now();
+
+    // 24-Hour Expiration for Universe / Pulses
+    if (activeOnly) {
+      posts = posts.filter((p) => {
+        const expTime = new Date(p.expiresAt || new Date(p.createdAt).getTime() + 24 * 60 * 60 * 1000).getTime();
+        return expTime > now;
+      });
+
+      // Provide fresh starter pulses if empty so Universe feed always has active high-quality pulses
+      if (posts.length === 0) {
+        const starterPulses: Post[] = [
+          {
+            id: 'pulse_starter_1',
+            authorId: OFFICIAL_PYE_USER.id,
+            author: {
+              id: OFFICIAL_PYE_USER.id,
+              username: OFFICIAL_PYE_USER.username,
+              fullName: OFFICIAL_PYE_USER.fullName,
+              avatar: OFFICIAL_PYE_USER.avatar,
+              isVerified: true,
+            },
+            caption: 'Welcome to the Universe Pulse feed! 🌌 Pulses last 24 hours and celebrate genuine moments across photography and video. Share your pulse today!',
+            mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&auto=format&fit=crop&q=80',
+            mediaType: 'image',
+            hashtags: ['Universe', 'PYE', 'Welcome'],
+            spaceSlug: 'future',
+            likesCount: 5,
+            commentsCount: 2,
+            sharesCount: 1,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+          },
+          {
+            id: 'pulse_starter_2',
+            authorId: MAYA_USER.id,
+            author: {
+              id: MAYA_USER.id,
+              username: MAYA_USER.username,
+              fullName: MAYA_USER.fullName,
+              avatar: MAYA_USER.avatar,
+              isVerified: true,
+            },
+            caption: 'Late night sound synthesis session in the studio. Testing generative frequencies with zero compression. ✨🎧',
+            mediaUrl: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=1000&auto=format&fit=crop&q=80',
+            mediaType: 'image',
+            hashtags: ['sounddesign', 'synth', 'studio'],
+            spaceSlug: 'music',
+            likesCount: 12,
+            commentsCount: 4,
+            sharesCount: 3,
+            createdAt: new Date(now - 3600 * 1000).toISOString(),
+            expiresAt: new Date(now + 23 * 60 * 60 * 1000).toISOString(),
+          },
+          {
+            id: 'pulse_starter_3',
+            authorId: ALEX_USER.id,
+            author: {
+              id: ALEX_USER.id,
+              username: ALEX_USER.username,
+              fullName: ALEX_USER.fullName,
+              avatar: ALEX_USER.avatar,
+              isVerified: true,
+            },
+            caption: 'Raytraced bloom simulation running at full 60fps in WebGL. The clarity of spatial graphics is unbelievable.',
+            mediaUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1000&auto=format&fit=crop&q=80',
+            mediaType: 'image',
+            hashtags: ['creative', 'webgl', '3d'],
+            spaceSlug: 'art',
+            likesCount: 9,
+            commentsCount: 3,
+            sharesCount: 2,
+            createdAt: new Date(now - 7200 * 1000).toISOString(),
+            expiresAt: new Date(now + 22 * 60 * 60 * 1000).toISOString(),
+          },
+        ];
+        posts = starterPulses;
+        this.setItem(STORAGE_KEYS.POSTS, starterPulses);
+      }
+    }
+
+    if (options?.spaceSlug) {
+      posts = posts.filter((p) => p.spaceSlug === options.spaceSlug);
+    }
+
     const likes = this.getLikes();
     const comments = this.getAllComments();
     const current = this.getCurrentUser();
@@ -1133,34 +1456,20 @@ class StorageService {
     }));
   }
 
-  public addPost(post: Omit<Post, 'id' | 'createdAt' | 'likesCount' | 'commentsCount' | 'sharesCount'>): Post {
+  public addPost(post: Omit<Post, 'id' | 'createdAt' | 'likesCount' | 'commentsCount' | 'sharesCount'> & { expiresAt?: string }): Post {
     const posts = this.getItem<Post[]>(STORAGE_KEYS.POSTS, []);
+    const now = new Date();
     const newPost: Post = {
       ...post,
-      id: `post_${Date.now()}`,
+      id: `post_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       likesCount: 0,
       commentsCount: 0,
       sharesCount: 0,
-      createdAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
+      expiresAt: post.expiresAt || new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     };
     posts.unshift(newPost);
     this.setItem(STORAGE_KEYS.POSTS, posts);
-
-    // If media is a video, automatically add it to PYES so whatever is posted appears in PYES!
-    if (post.mediaType === 'video' || (post.mediaUrl && (post.mediaUrl.endsWith('.mp4') || post.mediaUrl.includes('video')))) {
-      this.addPyes({
-        authorId: post.authorId,
-        author: post.author,
-        title: post.caption.slice(0, 45),
-        caption: post.caption,
-        videoUrl: post.mediaUrl!,
-        posterUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
-        musicTitle: 'Original PYE Audio',
-        musicAuthor: post.author.fullName,
-        hashtags: post.hashtags || ['PYES'],
-        spaceSlug: post.spaceSlug,
-      });
-    }
 
     this.recordMissionProgress('share_pulse', 1);
     return newPost;
@@ -1198,15 +1507,61 @@ class StorageService {
     return isSaved;
   }
 
-  // --- PYES (Original Short-Form Vertical Video Experience) ---
-  public getPyes(filter?: 'foryou' | 'following' | 'discover'): PyesVideo[] {
-    const shorts = this.getItem<PyesVideo[]>(STORAGE_KEYS.SHORTS, STARTER_PYES);
+  // --- PYES (Original Short-Form Vertical Reel Experience) ---
+  public getPyes(
+    filter?: 'foryou' | 'following' | 'discover',
+    options?: { activeOnly?: boolean; refreshSeed?: number }
+  ): PyesVideo[] {
+    const activeOnly = options?.activeOnly !== false;
+    let shorts = this.getItem<PyesVideo[]>(STORAGE_KEYS.SHORTS, STARTER_PYES);
+    const now = Date.now();
+
+    // Ensure all items have mediaType and expiresAt defined
+    shorts = shorts.map((s) => {
+      const isImg = s.mediaType === 'image' || Boolean(
+        s.videoUrl && (s.videoUrl.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif)($|\?)/i.test(s.videoUrl))
+      );
+      const createdTime = new Date(s.createdAt).getTime();
+      const expiresAt = s.expiresAt || new Date(createdTime + 24 * 60 * 60 * 1000).toISOString();
+      return {
+        ...s,
+        mediaType: isImg ? 'image' : 'video',
+        expiresAt,
+      };
+    });
+
+    // Exclude expired Pyes older than 24 hours
+    let activeShorts = shorts;
+    if (activeOnly) {
+      activeShorts = shorts.filter((s) => {
+        const expTime = new Date(s.expiresAt || new Date(s.createdAt).getTime() + 24 * 60 * 60 * 1000).getTime();
+        return expTime > now;
+      });
+
+      // Guarantee there is active starter content for new visitors if everything expired
+      if (activeShorts.length === 0) {
+        const refreshedStarters: PyesVideo[] = STARTER_PYES.map((starter, i) => {
+          const freshCreated = new Date(now - (i * 3600 * 1000)).toISOString();
+          const freshExpires = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+          const isImg = starter.mediaType === 'image' || Boolean(starter.videoUrl?.startsWith('data:image'));
+          return {
+            ...starter,
+            mediaType: (isImg ? 'image' : 'video') as 'image' | 'video',
+            createdAt: freshCreated,
+            expiresAt: freshExpires,
+          };
+        });
+        activeShorts = refreshedStarters;
+        this.setItem(STORAGE_KEYS.SHORTS, refreshedStarters);
+      }
+    }
+
     const likes = this.getLikes();
     const comments = this.getAllComments();
     const current = this.getCurrentUser();
     const followingIds = current ? this.getFollowing(current.id).map((f) => f.followingId) : [];
 
-    let enriched = shorts.map((s) => ({
+    let enriched = activeShorts.map((s) => ({
       ...s,
       visibility: s.visibility || 'public',
       moderationStatus: s.moderationStatus || 'approved',
@@ -1221,7 +1576,49 @@ class StorageService {
       enriched = enriched.filter((s) => followingIds.includes(s.authorId) || s.authorId === current.id);
     } else if (filter === 'discover') {
       // Prioritize trending / most active
-      enriched = [...enriched].sort((a, b) => (b.likesCount + b.commentsCount) - (a.likesCount + a.commentsCount));
+      enriched = [...enriched].sort((a, b) => (b.likesCount * 3 + b.commentsCount * 2) - (a.likesCount * 3 + a.commentsCount * 2));
+    } else {
+      // "FOR YOU" Algorithm:
+      // Real signals: views history, freshness, creator follow, engagement, exploration/variety
+      const viewedIds = current ? this.getViewedPyesIds(current.id) : [];
+      const userInterests = current ? this.getUserPyesInterests(current.id) : [];
+
+      enriched = [...enriched].sort((a, b) => {
+        let scoreA = 0;
+        let scoreB = 0;
+
+        // 1. Novelty (Unseen content prioritized)
+        if (!viewedIds.includes(a.id)) scoreA += 40;
+        if (!viewedIds.includes(b.id)) scoreB += 40;
+
+        // 2. Creator followed
+        if (followingIds.includes(a.authorId)) scoreA += 20;
+        if (followingIds.includes(b.authorId)) scoreB += 20;
+
+        // 3. Category/Tag match
+        const matchesA = (a.hashtags || []).some((tag) => userInterests.includes(tag.toLowerCase()));
+        const matchesB = (b.hashtags || []).some((tag) => userInterests.includes(tag.toLowerCase()));
+        if (matchesA) scoreA += 25;
+        if (matchesB) scoreB += 25;
+
+        // 4. Engagement
+        scoreA += (a.likesCount * 4) + (a.commentsCount * 3) + ((a.sharesCount || 0) * 5);
+        scoreB += (b.likesCount * 4) + (b.commentsCount * 3) + ((b.sharesCount || 0) * 5);
+
+        // 5. Freshness
+        const hoursAgoA = Math.max(0, (now - new Date(a.createdAt).getTime()) / (3600 * 1000));
+        const hoursAgoB = Math.max(0, (now - new Date(b.createdAt).getTime()) / (3600 * 1000));
+        scoreA += Math.max(0, 24 - hoursAgoA) * 1.5;
+        scoreB += Math.max(0, 24 - hoursAgoB) * 1.5;
+
+        return scoreB - scoreA;
+      });
+
+      // Refresh seed variation to smoothly rotate
+      if (options?.refreshSeed && options.refreshSeed > 0) {
+        const shift = options.refreshSeed % enriched.length;
+        enriched = [...enriched.slice(shift), ...enriched.slice(0, shift)];
+      }
     }
 
     return enriched;
@@ -1232,24 +1629,77 @@ class StorageService {
     return this.getPyes(filter);
   }
 
-  public addPyes(pyes: Omit<PyesVideo, 'id' | 'createdAt' | 'likesCount' | 'commentsCount' | 'sharesCount' | 'viewsCount'>): PyesVideo {
+  public addPyes(
+    pyes: Omit<PyesVideo, 'id' | 'createdAt' | 'likesCount' | 'commentsCount' | 'sharesCount' | 'viewsCount'> & {
+      mediaType?: 'video' | 'image';
+      expiresAt?: string;
+    }
+  ): PyesVideo {
     const shorts = this.getItem<PyesVideo[]>(STORAGE_KEYS.SHORTS, []);
+    const now = new Date();
+    const isImage = pyes.mediaType === 'image' || Boolean(
+      pyes.videoUrl && (
+        pyes.videoUrl.startsWith('data:image') ||
+        /\.(jpg|jpeg|png|webp|gif|avif)($|\?)/i.test(pyes.videoUrl)
+      )
+    );
+
     const newPyes: PyesVideo = {
       ...pyes,
-      id: `pyes_${Date.now()}`,
+      id: `pyes_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      mediaType: isImage ? 'image' : 'video',
       visibility: pyes.visibility || 'public',
       moderationStatus: 'approved',
       likesCount: 0,
       commentsCount: 0,
       sharesCount: 0,
       viewsCount: 1,
-      createdAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
+      expiresAt: pyes.expiresAt || new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     };
     shorts.unshift(newPyes);
     this.setItem(STORAGE_KEYS.SHORTS, shorts);
 
     this.recordMissionProgress('share_pulse', 1);
     return newPyes;
+  }
+
+  public recordPyesView(pyesId: string, watchDurationSec: number = 3, completed: boolean = false): void {
+    const current = this.getCurrentUser();
+    const shorts = this.getItem<PyesVideo[]>(STORAGE_KEYS.SHORTS, []);
+    const pye = shorts.find((s) => s.id === pyesId);
+    if (pye) {
+      pye.viewsCount = (pye.viewsCount || 0) + 1;
+      this.setItem(STORAGE_KEYS.SHORTS, shorts);
+
+      if (current) {
+        const key = `pye_views_${current.id}`;
+        const history = this.getItem<string[]>(key, []);
+        if (!history.includes(pyesId)) {
+          history.push(pyesId);
+          this.setItem(key, history.slice(-100));
+        }
+
+        if (completed || watchDurationSec >= 5) {
+          const interestKey = `pye_interests_${current.id}`;
+          const interests = this.getItem<string[]>(interestKey, []);
+          (pye.hashtags || []).forEach((t) => {
+            const clean = t.toLowerCase();
+            if (!interests.includes(clean)) interests.push(clean);
+          });
+          this.setItem(interestKey, interests.slice(-50));
+        }
+      }
+    }
+    this.recordMissionProgress('watch_pyes', 1);
+  }
+
+  public getViewedPyesIds(userId: string): string[] {
+    return this.getItem<string[]>(`pye_views_${userId}`, []);
+  }
+
+  public getUserPyesInterests(userId: string): string[] {
+    return this.getItem<string[]>(`pye_interests_${userId}`, []);
   }
 
   public deletePyes(pyesId: string): void {
@@ -2050,6 +2500,29 @@ class StorageService {
     };
     reports.unshift(newReport);
     this.setItem(STORAGE_KEYS.REPORTS, reports);
+
+    // Dispatch audit log
+    this.addAuditLog(
+      'SUBMIT_REPORT',
+      `Report on ${report.reportedItemType}: ${report.reportedItemId}`,
+      `Reason: ${report.reason}. Dispatched email alert to ${AUTHORIZED_MODERATION_EMAILS.join(', ')}`
+    );
+
+    // Notify administrators
+    AUTHORIZED_MODERATION_EMAILS.forEach((email) => {
+      this.addNotification({
+        type: 'system',
+        actor: {
+          id: 'system',
+          username: 'appix_security',
+          fullName: 'APPIX Moderation Gateway',
+          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=AppixSecurity&backgroundColor=FF007A,FFA000',
+        },
+        content: `New moderation report on ${report.reportedItemType} (${report.reason}). Alert dispatched to ${email}`,
+        targetId: 'admin',
+      });
+    });
+
     return newReport;
   }
 
@@ -2341,6 +2814,21 @@ class StorageService {
     let list = this.getBlockedUsers();
     list = list.filter((b) => b.id !== userId);
     this.setItem(STORAGE_KEYS.BLOCKED_USERS, list);
+  }
+
+  public blockUser(userId: string): void {
+    const list = this.getBlockedUsers();
+    if (!list.some((b) => b.id === userId)) {
+      const user = this.getUserById(userId);
+      list.push({
+        id: userId,
+        username: user?.username || 'user',
+        fullName: user?.fullName || 'User',
+        avatar: user?.avatar || '',
+        blockedAt: new Date().toISOString(),
+      });
+      this.setItem(STORAGE_KEYS.BLOCKED_USERS, list);
+    }
   }
 
   public claimDailyReward(): { ok: boolean; message: string; silver?: number; gold?: number } {

@@ -31,6 +31,7 @@ interface PyeSoundsProps {
   onOpenAuth: (tab?: 'login' | 'signup') => void;
   onUseSoundInPyes?: (sound: SoundTrack) => void;
   onViewProfile?: (userId: string) => void;
+  onOpenCreateSound?: () => void;
 }
 
 export const PyeSounds: React.FC<PyeSoundsProps> = ({
@@ -38,6 +39,7 @@ export const PyeSounds: React.FC<PyeSoundsProps> = ({
   onOpenAuth,
   onUseSoundInPyes,
   onViewProfile,
+  onOpenCreateSound,
 }) => {
   const [activeTab, setActiveTab] = useState<'trending' | 'new' | 'yours' | 'saved'>('trending');
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,8 +63,42 @@ export const PyeSounds: React.FC<PyeSoundsProps> = ({
   const [newCategory, setNewCategory] = useState('Electronic');
   const [newAudioUrl, setNewAudioUrl] = useState('');
   const [newCoverUrl, setNewCoverUrl] = useState('');
+  const [audioFileName, setAudioFileName] = useState('');
+  const [coverFileName, setCoverFileName] = useState('');
   const [newTags, setNewTags] = useState('');
   const [isCreatingSound, setIsCreatingSound] = useState(false);
+
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAudioFileName(file.name);
+    if (!newTitle) {
+      setNewTitle(file.name.replace(/\.[^/.]+$/, ''));
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setNewAudioUrl(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCoverFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setNewCoverUrl(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Toast feedback
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -622,29 +658,74 @@ export const PyeSounds: React.FC<PyeSoundsProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                  Audio URL (MP3 / WAV stem or stream)
+              {/* Audio Source: Device File Upload or URL */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-zinc-300">
+                  Audio Stem / Track File (MP3, WAV, AAC, M4A) *
                 </label>
+                
+                <input
+                  ref={audioFileInputRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleAudioFileChange}
+                  className="hidden"
+                />
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => audioFileInputRef.current?.click()}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition flex items-center justify-center gap-2 border border-white/10 active:scale-95 shadow"
+                  >
+                    <UploadCloud className="w-4 h-4 text-[#FFA000]" />
+                    <span>{audioFileName ? `Selected: ${audioFileName}` : 'Choose Audio File From Device'}</span>
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-zinc-500 font-mono">
+                  Or provide external stream URL:
+                </div>
                 <input
                   type="url"
                   value={newAudioUrl}
                   onChange={(e) => setNewAudioUrl(e.target.value)}
-                  placeholder="https://... audio file URL (leave empty for sound generator)"
-                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
+                  placeholder="https://... audio file URL (optional if file chosen above)"
+                  className="w-full px-3.5 py-2 bg-zinc-900/80 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">
-                  Cover Art Image URL
+              {/* Cover Art Image: Device Upload or URL */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-zinc-300">
+                  Cover Art Image (JPG, PNG, WebP)
                 </label>
+
+                <input
+                  ref={coverFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverFileChange}
+                  className="hidden"
+                />
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => coverFileInputRef.current?.click()}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition flex items-center justify-center gap-2 border border-white/10 active:scale-95 shadow"
+                  >
+                    <UploadCloud className="w-4 h-4 text-[#FF007A]" />
+                    <span>{coverFileName ? `Selected: ${coverFileName}` : 'Choose Cover Image From Device'}</span>
+                  </button>
+                </div>
+
                 <input
                   type="url"
                   value={newCoverUrl}
                   onChange={(e) => setNewCoverUrl(e.target.value)}
                   placeholder="https://... cover image URL (optional)"
-                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
+                  className="w-full px-3.5 py-2 bg-zinc-900/80 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
                 />
               </div>
 

@@ -16,10 +16,18 @@ import {
   Share2,
   RefreshCw,
   Image as ImageIcon,
+  MessageSquare,
+  Search,
+  QrCode,
+  Zap,
 } from 'lucide-react';
 import { User, Post, PyesVideo } from '../../types';
 import { Storage } from '../../services/storage';
 import { compressImageFile } from '../../utils/imageUtils';
+import { PyeLogo } from '../ui/PyeLogo';
+import { AccountBadge } from '../ui/AccountBadge';
+import { PyeIdCardModal } from './PyeIdCardModal';
+import { PromotePostModal } from '../monetization/PromotePostModal';
 
 interface ProfileViewProps {
   userId: string;
@@ -27,6 +35,8 @@ interface ProfileViewProps {
   onOpenAuth: (tab?: 'login' | 'signup') => void;
   onUserUpdated: (user: User) => void;
   onNavigateToPyes?: () => void;
+  onOpenMessagesWithUser?: (targetUser: User) => void;
+  onNavigateToProfile?: (userId: string) => void;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -35,6 +45,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenAuth,
   onUserUpdated,
   onNavigateToPyes,
+  onOpenMessagesWithUser,
+  onNavigateToProfile,
 }) => {
   const [profileUser, setProfileUser] = useState<User | undefined>(() =>
     Storage.getUserById(userId) || (currentUser?.id === userId ? currentUser : undefined)
@@ -60,6 +72,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
+  // Followers & Following Modal state
+  const [showFollowModal, setShowFollowModal] = useState<'followers' | 'following' | null>(null);
+  const [followListUsers, setFollowListUsers] = useState<User[]>([]);
+  const [followSearch, setFollowSearch] = useState('');
+
+  // Pye ID 3D Card & Promotion Modals
+  const [showIdCard, setShowIdCard] = useState(false);
+  const [promoteItem, setPromoteItem] = useState<{ item: Post | PyesVideo; type: 'post' | 'pyes' } | null>(null);
+  const [contentVersion, setContentVersion] = useState(0);
+
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +90,45 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  const handleDeletePost = (postId: string) => {
+    Storage.deletePost(postId);
+    setContentVersion((v) => v + 1);
+    showToast('Post deleted successfully.');
+  };
+
+  const handleDeletePyes = (pyesId: string) => {
+    Storage.deletePyes(pyesId);
+    setContentVersion((v) => v + 1);
+    showToast('PYES reel deleted successfully.');
+  };
+
+  const handleOpenFollowModal = (type: 'followers' | 'following') => {
+    if (!profileUser) return;
+    setShowFollowModal(type);
+    setFollowSearch('');
+    if (type === 'followers') {
+      setFollowListUsers(Storage.getFollowersUsers(profileUser.id));
+    } else {
+      setFollowListUsers(Storage.getFollowingUsers(profileUser.id));
+    }
+  };
+
+  const handleMessageClick = () => {
+    if (!currentUser) {
+      onOpenAuth('login');
+      return;
+    }
+    if (!profileUser) return;
+    if (Storage.isUserBlocked(currentUser.id, profileUser.id)) {
+      showToast('Cannot message this Pye user due to privacy settings.');
+      return;
+    }
+    Storage.getOrCreateConversation(currentUser.id, profileUser);
+    if (onOpenMessagesWithUser) {
+      onOpenMessagesWithUser(profileUser);
+    }
   };
 
   if (!profileUser) {
@@ -220,8 +281,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-[#FF007A]/30 via-[#FF5500]/20 to-[#FFA000]/30 flex items-center justify-center">
-              <div className="text-zinc-600 font-mono text-xs uppercase tracking-widest">
-                PYE Universe Banner
+              <div className="flex items-center gap-2 text-zinc-300 font-mono text-xs uppercase tracking-widest font-bold">
+                <PyeLogo size={24} />
+                <span>PYE Universe Profile</span>
               </div>
             </div>
           )}
@@ -297,6 +359,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
             {/* Action buttons */}
             <div className="flex items-center gap-2">
+              {/* Digital Pye ID Flip Card Button */}
+              <button
+                type="button"
+                onClick={() => setShowIdCard(true)}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#FF007A]/20 to-[#FFA000]/20 hover:from-[#FF007A]/30 hover:to-[#FFA000]/30 text-white text-xs font-bold flex items-center gap-1.5 transition border border-white/10 shadow active:scale-95"
+                title="View 3D Digital Pye ID Card"
+              >
+                <QrCode className="w-3.5 h-3.5 text-[#FFA000]" />
+                <span>Pye ID Card</span>
+              </button>
+
               {isOwnProfile ? (
                 <button
                   onClick={() => {
@@ -312,26 +385,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <span>Edit Profile</span>
                 </button>
               ) : (
-                <button
-                  onClick={handleFollowToggle}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold transition shadow-lg ${
-                    isFollowing
-                      ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      : 'bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white'
-                  }`}
-                >
-                  {isFollowing ? 'Following' : '+ Follow Pioneer'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleFollowToggle}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow-lg ${
+                      isFollowing
+                        ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                        : 'bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white'
+                    }`}
+                  >
+                    {isFollowing ? 'Following' : '+ Follow'}
+                  </button>
+
+                  <button
+                    onClick={handleMessageClick}
+                    className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition flex items-center gap-1.5 border border-white/10 shadow"
+                    title="Send Direct Message"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-[#FF007A]" />
+                    <span>Message</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Names and handle */}
+          {/* Names, Verification, and Badges */}
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-black text-white font-display">
                 {profileUser.fullName}
               </h1>
+              <AccountBadge
+                followersCount={profileUser.followersCount}
+                isVerified={profileUser.isVerified}
+                role={profileUser.role}
+                size="md"
+              />
               <span className="text-xs px-2 py-0.5 rounded-full bg-[#FF007A]/15 text-[#FF007A] font-bold font-mono">
                 {profileUser.pieId}
               </span>
@@ -341,24 +431,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
           {/* Bio */}
           <p className="text-xs sm:text-sm text-zinc-300 mt-3 max-w-2xl leading-relaxed">
-            {profileUser.bio || 'Pioneer exploring the PYE Social Universe.'}
+            {profileUser.bio || 'Pye user exploring the PYE Social Universe.'}
           </p>
 
-          {/* Metrics bar (Real values only, no manufactured counts) */}
+          {/* Metrics bar (Clickable Followers & Following with Real Counts) */}
           <div className="flex flex-wrap items-center gap-6 mt-4 pt-4 border-t border-white/5 text-xs">
-            <div>
-              <span className="font-mono font-bold text-white text-sm">
+            <button
+              type="button"
+              onClick={() => handleOpenFollowModal('followers')}
+              className="text-left hover:opacity-80 transition group focus:outline-none cursor-pointer"
+            >
+              <span className="font-mono font-bold text-white text-sm group-hover:text-[#FF007A]">
                 {profileUser.followersCount}
               </span>{' '}
-              <span className="text-zinc-400">Followers</span>
-            </div>
+              <span className="text-zinc-400 group-hover:underline">Followers</span>
+            </button>
 
-            <div>
-              <span className="font-mono font-bold text-white text-sm">
+            <button
+              type="button"
+              onClick={() => handleOpenFollowModal('following')}
+              className="text-left hover:opacity-80 transition group focus:outline-none cursor-pointer"
+            >
+              <span className="font-mono font-bold text-white text-sm group-hover:text-[#FFA000]">
                 {profileUser.followingCount}
               </span>{' '}
-              <span className="text-zinc-400">Following</span>
-            </div>
+              <span className="text-zinc-400 group-hover:underline">Following</span>
+            </button>
 
             <div>
               <span className="font-mono font-bold text-white text-sm">
@@ -447,6 +545,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {isOwnProfile && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setPromoteItem({ item: post, type: 'post' })}
+                        className="px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-[#FFA000] text-[10px] font-bold border border-amber-500/30 flex items-center gap-1 transition"
+                        title="Promote pulse with SPC"
+                      >
+                        <Zap className="w-3 h-3" />
+                        <span>Promote</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        className="p-1.5 rounded-xl bg-white/5 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 transition"
+                        title="Delete pulse"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <p className="text-zinc-200 text-xs sm:text-sm leading-relaxed">{post.caption}</p>
@@ -493,6 +612,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition" />
+
+                  {isOwnProfile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePyes(video.id);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-rose-500/80 text-white z-20 backdrop-blur-md transition shadow"
+                      title="Delete PYES"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <div className="absolute bottom-2 left-2 right-2 space-y-1">
                     <div className="text-[11px] font-bold text-white truncate drop-shadow">
                       {video.title || video.caption}
@@ -538,9 +671,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-lg p-5 sm:p-6 rounded-3xl bg-[#0f0f18] border border-white/10 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                Profile & Visual Settings
-              </h3>
+              <div className="flex items-center gap-2">
+                <PyeLogo size={24} />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Profile & Visual Settings
+                </h3>
+              </div>
               <button
                 onClick={() => setShowEditModal(false)}
                 className="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition"
@@ -645,6 +781,141 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Followers & Following Modal */}
+      {showFollowModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in">
+          <div className="w-full max-w-md h-[520px] rounded-3xl bg-[#0f0f18] border border-white/10 flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#FF007A]" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  {showFollowModal === 'followers' ? 'Followers' : 'Following'} ({followListUsers.length})
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowFollowModal(null)}
+                className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search filter */}
+            <div className="p-3 border-b border-white/5">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  type="text"
+                  value={followSearch}
+                  onChange={(e) => setFollowSearch(e.target.value)}
+                  placeholder={`Search ${showFollowModal}...`}
+                  className="w-full pl-8 pr-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF007A]"
+                />
+              </div>
+            </div>
+
+            {/* Users List */}
+            <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-2">
+              {followListUsers
+                .filter(
+                  (u) =>
+                    u.fullName.toLowerCase().includes(followSearch.toLowerCase()) ||
+                    u.username.toLowerCase().includes(followSearch.toLowerCase())
+                )
+                .map((u) => {
+                  const isFollowingUser = Storage.isFollowing(u.id);
+                  const isMe = currentUser?.id === u.id;
+                  return (
+                    <div
+                      key={u.id}
+                      className="p-3 rounded-2xl hover:bg-white/5 flex items-center justify-between gap-3 transition"
+                    >
+                      <button
+                        onClick={() => {
+                          setShowFollowModal(null);
+                          if (onNavigateToProfile) onNavigateToProfile(u.id);
+                        }}
+                        className="flex items-center gap-3 min-w-0 text-left flex-1"
+                      >
+                        <img
+                          src={u.avatar}
+                          alt={u.fullName}
+                          className="w-10 h-10 rounded-full bg-zinc-800 object-cover ring-2 ring-white/10"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold text-white truncate hover:text-[#FFA000]">
+                              {u.fullName}
+                            </span>
+                            {u.isVerified && (
+                              <CheckCircle className="w-3 h-3 text-[#FF007A] shrink-0" />
+                            )}
+                          </div>
+                          <div className="text-[11px] text-zinc-400">@{u.username}</div>
+                          {u.bio && (
+                            <div className="text-[10px] text-zinc-500 truncate max-w-[180px] mt-0.5">
+                              {u.bio}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+
+                      {!isMe && currentUser && (
+                        <button
+                          onClick={() => {
+                            Storage.toggleFollow(u.id);
+                            if (showFollowModal === 'followers') {
+                              setFollowListUsers(Storage.getFollowersUsers(profileUser.id));
+                            } else {
+                              setFollowListUsers(Storage.getFollowingUsers(profileUser.id));
+                            }
+                            setProfileUser(Storage.getUserById(profileUser.id));
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition shrink-0 ${
+                            isFollowingUser
+                              ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                              : 'bg-gradient-to-r from-[#FF007A] to-[#FFA000] text-white shadow'
+                          }`}
+                        >
+                          {isFollowingUser ? 'Following' : '+ Follow'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              {followListUsers.length === 0 && (
+                <div className="p-8 text-center text-xs text-zinc-500">
+                  No {showFollowModal} to display yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 3D Flipable Pye ID Card Modal */}
+      {showIdCard && profileUser && (
+        <PyeIdCardModal
+          user={profileUser}
+          isOpen={showIdCard}
+          onClose={() => setShowIdCard(false)}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* Paid Post Promotion Modal (15 SPC / 60 SPC) */}
+      {promoteItem && currentUser && (
+        <PromotePostModal
+          item={promoteItem.item}
+          itemType={promoteItem.type}
+          currentUser={currentUser}
+          isOpen={Boolean(promoteItem)}
+          onClose={() => setPromoteItem(null)}
+          onSuccess={(msg) => showToast(msg)}
+          onOpenWallet={() => {}}
+        />
       )}
     </div>
   );

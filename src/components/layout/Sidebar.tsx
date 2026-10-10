@@ -16,6 +16,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { User } from '../../types';
+import { PyeLogo } from '../ui/PyeLogo';
 
 interface SidebarProps {
   currentView: string;
@@ -149,8 +150,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mini Promotion Banner */}
       <div className="mt-auto pt-4">
         <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#FF007A]/15 via-[#FF6A00]/10 to-transparent border border-white/5">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-white mb-1">
-            <Sparkles className="w-3.5 h-3.5 text-[#FFA000]" />
+          <div className="flex items-center gap-2 text-xs font-bold text-white mb-1">
+            <PyeLogo size={18} />
             <span>PYE Universe Daily</span>
           </div>
           <p className="text-[11px] text-zinc-400 leading-relaxed mb-2.5">

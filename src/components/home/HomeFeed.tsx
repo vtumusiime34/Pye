@@ -14,9 +14,15 @@ import {
   Image,
   Activity,
   Compass,
+  RotateCw,
+  Clock,
+  Zap,
 } from 'lucide-react';
 import { Post, User, Comment } from '../../types';
 import { Storage } from '../../services/storage';
+import { PyeLogo } from '../ui/PyeLogo';
+import { AccountBadge } from '../ui/AccountBadge';
+import { PromotePostModal } from '../monetization/PromotePostModal';
 
 interface HomeFeedProps {
   currentUser: User | null;
@@ -38,7 +44,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onSelectSpace,
 }) => {
   const [feedTab, setFeedTab] = useState<'universe' | 'pulse' | 'following'>('universe');
-  const [posts, setPosts] = useState<Post[]>(() => Storage.getPosts());
+  const [posts, setPosts] = useState<Post[]>(() => Storage.getPosts({ activeOnly: true }));
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Comment drawer/inline state
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
@@ -47,12 +54,27 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   // Quick post inline state
   const [quickPostText, setQuickPostText] = useState('');
+  const [promotePost, setPromotePost] = useState<Post | null>(null);
 
   // Toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  const handleDeletePost = (postId: string) => {
+    Storage.deletePost(postId);
+    setPosts(Storage.getPosts({ activeOnly: true }));
+    showToast('Pulse deleted.');
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    const fresh = Storage.getPosts({ activeOnly: true });
+    setPosts(fresh);
+    showToast('Refreshed! Fresh 24-hour Pulses loaded.');
+    setTimeout(() => setIsRefreshing(false), 450);
   };
 
   const handleLike = (postId: string) => {
@@ -204,9 +226,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-[#FF007A]/15 via-[#FF5500]/10 to-[#FFA000]/15 border border-[#FF007A]/30 shadow-2xl backdrop-blur-md">
           <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF007A]/20 border border-[#FF007A]/40 text-[#FFA000] text-[10px] font-bold uppercase tracking-wider mb-2">
-                <Sparkles className="w-3 h-3" />
-                Join the Universe
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FF007A]/20 border border-[#FF007A]/40 text-[#FFA000] text-[10px] font-bold uppercase tracking-wider mb-2">
+                <PyeLogo size={16} />
+                <span>Join PYE Social Universe</span>
               </div>
               <h3 className="text-base sm:text-lg font-black text-white font-display">
                 Ready to experience PYE Social Universe?
@@ -233,7 +255,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         </div>
       )}
 
-      {/* Feed Tabs: PYE Universe / PYE Pulse / Following */}
+      {/* Feed Tabs: PYE Universe / PYE Pulse / Following + Refresh */}
       <div className="p-1 bg-[#0f0f18] rounded-2xl border border-white/5 flex items-center gap-1">
         <button
           onClick={() => setFeedTab('universe')}
@@ -268,6 +290,18 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           }`}
         >
           <span>Following</span>
+        </button>
+
+        {/* Smooth Refresh Button */}
+        <button
+          onClick={handleRefresh}
+          className={`px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition flex items-center gap-1 text-xs font-semibold ${
+            isRefreshing ? 'animate-spin text-[#FFA000]' : ''
+          }`}
+          title="Refresh Universe & Pulses"
+        >
+          <RotateCw className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
@@ -344,6 +378,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           const isFollowingAuthor = Storage.isFollowing(post.authorId);
           const isOwnPost = currentUser?.id === post.authorId;
           const comments = commentsMap[post.id] || [];
+          const authorUser = Storage.getUserById(post.authorId);
 
           return (
             <article
@@ -366,16 +401,19 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   </button>
 
                   <div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <button
                         onClick={() => onViewProfile(post.authorId)}
                         className="text-xs sm:text-sm font-bold text-white hover:text-[#FF007A] transition text-left"
                       >
                         {post.author.fullName}
                       </button>
-                      {post.author.isVerified && (
-                        <CheckCircle className="w-3.5 h-3.5 text-[#FF007A] shrink-0" />
-                      )}
+                      <AccountBadge
+                        followersCount={authorUser?.followersCount || 0}
+                        isVerified={post.author.isVerified}
+                        role={authorUser?.role}
+                        size="sm"
+                      />
                     </div>
                     <div className="text-[11px] text-zinc-400 flex items-center gap-1">
                       <span>@{post.author.username}</span>
@@ -383,6 +421,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                       <time className="text-[10px] text-zinc-500 font-mono">
                         {new Date(post.createdAt).toLocaleDateString()}
                       </time>
+                      {post.isPromoted && (
+                        <span className="ml-1.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-[#FFA000] border border-amber-500/30 uppercase font-mono">
+                          Promoted
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -397,7 +440,25 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                     </button>
                   )}
 
-                  {!isOwnPost && (
+                  {isOwnPost ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setPromotePost(post)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-[#FFA000] hover:bg-amber-500/10 transition"
+                        title="Promote pulse with SPC"
+                      >
+                        <Zap className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                        title="Delete pulse"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       onClick={() => handleFollowToggle(post.authorId)}
                       className={`px-3 py-1 rounded-full text-xs font-bold transition ${
@@ -439,20 +500,21 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 </div>
               )}
 
-              {/* Post Media */}
+              {/* Post Media (Preserves aspect ratio, supports photos and videos) */}
               {post.mediaUrl && (
-                <div className="rounded-2xl overflow-hidden bg-black border border-white/5 max-h-[460px]">
+                <div className="rounded-2xl overflow-hidden bg-[#07070b] border border-white/5 flex items-center justify-center p-1">
                   {post.mediaType === 'video' ? (
                     <video
                       src={post.mediaUrl}
                       controls
-                      className="w-full h-auto max-h-[460px] object-cover"
+                      playsInline
+                      className="w-full max-h-[520px] object-contain rounded-xl"
                     />
                   ) : (
                     <img
                       src={post.mediaUrl}
-                      alt="Post visual"
-                      className="w-full h-auto max-h-[460px] object-cover"
+                      alt="Pulse visual"
+                      className="w-full max-h-[520px] object-contain rounded-xl"
                       referrerPolicy="no-referrer"
                     />
                   )}
@@ -597,6 +659,19 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             </article>
           );
         })
+      )}
+
+      {/* Post Promotion Modal */}
+      {promotePost && currentUser && (
+        <PromotePostModal
+          item={promotePost}
+          itemType="post"
+          currentUser={currentUser}
+          isOpen={Boolean(promotePost)}
+          onClose={() => setPromotePost(null)}
+          onSuccess={(msg) => showToast(msg)}
+          onOpenWallet={() => {}}
+        />
       )}
     </div>
   );

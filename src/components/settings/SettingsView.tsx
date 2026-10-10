@@ -18,6 +18,7 @@ import {
 import { User, PrivacySettings } from '../../types';
 import { Storage } from '../../services/storage';
 import { compressImageFile } from '../../utils/imageUtils';
+import { PyeLogo } from '../ui/PyeLogo';
 
 interface SettingsViewProps {
   currentUser: User | null;
@@ -221,7 +222,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Header */}
       <div className="p-6 rounded-3xl bg-[#0f0f18] border border-white/5 space-y-1 shadow-xl">
         <div className="flex items-center gap-2 text-xs font-bold text-[#FF007A] uppercase tracking-wider">
-          <Settings className="w-4 h-4" />
+          <PyeLogo size={20} />
           <span>Account Controls & Identity</span>
         </div>
         <h1 className="text-xl sm:text-2xl font-black text-white font-display">
